@@ -33,15 +33,9 @@ class NewCampaignDialog(QDialog):
         if self.th.count() > 1:                       # the picker only appears once there is more than one theatre pack
             form.addRow("Theatre", self.th)
         self.ac = QComboBox()
-        era_label = {"ww2": "WWII", "early_jet": "early jet", "modern": "modern"}
-        for k, s in AIRCRAFT.items():                  # tuned jets first, then mods, then every other flyable type DCS has
-            if s.player_flyable:
-                basing = "carrier" if s.home.value == "CARRIER" else ("land or carrier" if s.carrier_capable else "land-based")
-                tag = "" if s.tuned else ("  - mod" if s.source == "mod" else "  - generic profile")
-                self.ac.addItem(f"{s.display}  ({era_label.get(s.era, s.era)}, {basing}){tag}", k)
         form.addRow("You fly", self.ac)
         self.sqd = QComboBox(); form.addRow("Your squadron", self.sqd)
-        self.ac.currentIndexChanged.connect(self._squads); self.th.currentIndexChanged.connect(self._squads); self._squads()
+        self.ac.currentIndexChanged.connect(self._squads)
         self.lvl = QComboBox()
         for n, d in LEVELS.items():
             self.lvl.addItem(d.name, n)
@@ -52,8 +46,10 @@ class NewCampaignDialog(QDialog):
             self.month.addItem(mname, i)
         self.month.setCurrentIndex(5)
         self.day = QSpinBox(); self.day.setRange(1, 28); self.day.setValue(12)
-        row = QHBoxLayout(); row.addWidget(self.month, 1); row.addWidget(self.day); row.addWidget(QLabel("2004"))
+        self.year = QLabel("2004")
+        row = QHBoxLayout(); row.addWidget(self.month, 1); row.addWidget(self.day); row.addWidget(self.year)
         form.addRow("Campaign starts", row)
+        self.th.currentIndexChanged.connect(self._theatre); self._theatre()
         self.night = QCheckBox("Allow night sorties (otherwise missions are spread through daylight)")
         form.addRow("", self.night)
         lay.addLayout(form)
@@ -61,6 +57,36 @@ class NewCampaignDialog(QDialog):
         self.lvl.currentIndexChanged.connect(self._b); self._b()
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel); bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject); lay.addWidget(bb)
+
+    def _theatre(self):
+        """The theatre decides the era: a WWII map offers only warbirds and starts in its own year (Normandy: June 1944)."""
+        from .. import theatres as _th, factions as _fx
+        th = _th.load(self.th.currentData() or "caucasus")
+        era = _fx.get(_fx.for_theatre(th)["blue"]).get("era", "modern")
+        self.year.setText(str(th.get("year", 2004)))
+        try:
+            m, d = (int(v) for v in str(th.get("default_start", "")).split("-")[1:3])
+            self.month.setCurrentIndex(m - 1); self.day.setValue(min(28, d))
+        except ValueError:
+            pass
+        era_label = {"ww2": "WWII", "early_jet": "early jet", "modern": "modern"}
+        keep = self.ac.currentData()
+        self.ac.blockSignals(True); self.ac.clear()
+        side_keys = _fx.flyable_keys("blue", th)       # the Allies fly Allied aircraft: the faction's own list, theatre squadrons first
+        order = side_keys + [k for k in AIRCRAFT if k not in side_keys] if side_keys else list(AIRCRAFT)
+        for k in order:                                # tuned jets first, then mods, then every other flyable type DCS has
+            if k not in AIRCRAFT:                      # AI-only types in the faction list (A-20G, B-17G): nobody flies those
+                continue
+            s = AIRCRAFT[k]
+            if not s.player_flyable or ((s.era == "ww2") != (era == "ww2")) or (side_keys and k not in side_keys):
+                continue                               # WWII theatres fly WWII aircraft; the others fly everything else
+            basing = "carrier" if s.home.value == "CARRIER" else ("land or carrier" if s.carrier_capable else "land-based")
+            tag = "" if s.tuned else ("  - mod" if s.source == "mod" else "  - generic profile")
+            self.ac.addItem(f"{s.display}  ({era_label.get(s.era, s.era)}, {basing}){tag}", k)
+        i = self.ac.findData(keep)
+        self.ac.setCurrentIndex(max(0, i))
+        self.ac.blockSignals(False)
+        self._squads()
 
     def _b(self):
         self.blurb.setText(LEVELS[self.lvl.currentData()].blurb)
@@ -73,7 +99,7 @@ class NewCampaignDialog(QDialog):
 
     def values(self) -> dict:
         return {"name": self.name.text().strip() or "Campaign", "aircraft": self.ac.currentData(), "level": self.lvl.currentData(),
-                "start_date": f"2004-{self.month.currentData():02d}-{self.day.value():02d}", "night_ops": self.night.isChecked(),
+                "start_date": f"{self.year.text()}-{self.month.currentData():02d}-{self.day.value():02d}", "night_ops": self.night.isChecked(),
                 "squadron": self.sqd.currentData(), "theatre": self.th.currentData() or "caucasus"}
 
 

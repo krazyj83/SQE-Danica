@@ -532,6 +532,11 @@
     "BTR_60"
    ]
   ],
-  "wreck_aaa": "ZSU_23_4_Shilka"
+  "wreck_aaa": "ZSU_23_4_Shilka",
+  "extra_aaa": [
+   "ZSU_23_4_Shilka",
+   "SA_18_Igla_manpad",
+   "Ural_375_ZU_23"
+  ]
  }
 }

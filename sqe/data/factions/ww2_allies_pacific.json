@@ -274,6 +274,11 @@
     1
    ]
   ],
-  "jtac": "Willys_MB"
+  "jtac": "Willys_MB",
+  "extra_aaa": [
+   "M45_Quadmount",
+   "M1_37mm",
+   "bofors40"
+  ]
  }
 }

@@ -17,14 +17,16 @@ You still need the map installed in DCS to fly it, and pydcs must know the terra
 | `temp_c` | 12 monthly mean temperatures for the mission weather |
 | `geo` | coarse coastline / lakes / borders file for the map view (file in the same folder; `land`, `lakes`, `borders` as lists of [x, y] points, x north, y east, metres) |
 | `scan` | terrain scan: `file` (the name written to `Saved Games\SQE`), the area `x0 x1 y0 y1` in metres, `step`, and `probe_airport` (where the free Su-25T starts). Optional: `height_step` (ground-height grid in metres, default 1000) and `relief_file` (default: the `file` name with "terrain" replaced by "relief") |
-| `carrier` | `id`, `name`, and the station: `from_airport`, `heading` and `distance_m` out to sea |
+| `carrier` | optional. `id`, `name`, and the station: `from_airport`, `heading` and `distance_m` out to sea. Leave it out for a land-only theatre (Normandy) |
+| `factions` | `{"blue": ..., "red": ...}` faction pack ids (docs/FACTIONS.md); default the modern pair |
+| `year`, `default_start` | the year the war is set in (New Campaign shows it) and the default first day, e.g. `1944`, `"1944-06-20"` |
 | `blue_fields` | friendly airfields: `id`, `name`, `airport` (the pydcs airport name) |
 | `red_fields` | enemy airfields: `id` (must start with `ab_`), `name`, `airport`, `value` |
 | `red_keep` | for a campaign level, the only enemy airfields that exist (`{"1": ["ab_a", "ab_b"]}`) |
 | `wing_weight` | which enemy fields get an air wing, and how big a share |
 | `field_tier` | depth tier of each enemy airfield, 1 front to 4 deep |
 | `bomber_base` | enemy airfield for the strategic bomber wing (or empty) |
-| `squadrons` | `id`, `name`, `aircraft`, `base` (the carrier or a blue field id), `count`, `callsign` (unique across the coalition) |
+| `squadrons` | `id`, `name`, `aircraft`, `base` (the carrier or a blue field id), `count`, `callsign` (unique across the coalition, and one DCS knows: Enfield, Springfield, Uzi, Colt, Dodge, Ford, Chevy, Pontiac, plus a few per type) |
 | `support_targets` | headquarters, fuel and ammunition: `parent` field, `id`, `name`, `kind` (C2, FUEL, DEPOT), `airport`, `dx`, `dy` offset in metres, `value` |
 | `front` | `from_airport` and `to_airport`: where the ground push runs |
 | `front.zones`, `front.beyond`, `front.deep_zones`, `front.fall` | ground war: number of sectors between the two airfields, the name of the town beyond, extra deep sectors, and which sector's fall takes which base, e.g. `{"3": "senaki", "4": "kutaisi"}`; optional `front.zone_names` |

@@ -1,0 +1,389 @@
+{
+ "id": "normandy",
+ "name": "Normandy 1944",
+ "dcs_terrain": "Normandy",
+ "factions": {
+  "blue": "ww2_allies_europe",
+  "red": "ww2_axis_germany"
+ },
+ "year": 1944,
+ "default_start": "1944-06-20",
+ "lat": 49.3,
+ "lon": -0.5,
+ "tz": 2.0,
+ "temp_c": [
+  5,
+  5,
+  8,
+  10,
+  13,
+  16,
+  18,
+  18,
+  16,
+  12,
+  8,
+  6
+ ],
+ "geo": "normandy_geo.json",
+ "scan": {
+  "file": "SQE_terrain_normandy.json",
+  "x0": -120000,
+  "x1": 240000,
+  "y0": -170000,
+  "y1": 210000,
+  "step": 250,
+  "probe_airport": "Carpiquet"
+ },
+ "blue_fields": [
+  {
+   "id": "bazenville",
+   "name": "B-2 Bazenville",
+   "airport": "Bazenville"
+  },
+  {
+   "id": "ste_croix",
+   "name": "B-3 Sainte-Croix-sur-Mer",
+   "airport": "Sainte-Croix-sur-Mer"
+  },
+  {
+   "id": "beny",
+   "name": "B-4 Beny-sur-Mer",
+   "airport": "Beny-sur-Mer"
+  },
+  {
+   "id": "longues",
+   "name": "B-11 Longues-sur-Mer",
+   "airport": "Longues-sur-Mer"
+  },
+  {
+   "id": "cricqueville",
+   "name": "A-2 Cricqueville",
+   "airport": "Cricqueville-en-Bessin"
+  },
+  {
+   "id": "deux_jumeaux",
+   "name": "A-4 Deux Jumeaux",
+   "airport": "Deux Jumeaux"
+  },
+  {
+   "id": "ford",
+   "name": "RAF Ford",
+   "airport": "Ford"
+  },
+  {
+   "id": "tangmere",
+   "name": "RAF Tangmere",
+   "airport": "Tangmere"
+  }
+ ],
+ "red_fields": [
+  {
+   "id": "ab_carpiquet",
+   "name": "Carpiquet",
+   "airport": "Carpiquet",
+   "value": 7
+  },
+  {
+   "id": "ab_lessay",
+   "name": "Lessay",
+   "airport": "Lessay",
+   "value": 6
+  },
+  {
+   "id": "ab_flers",
+   "name": "Flers",
+   "airport": "Flers",
+   "value": 5
+  },
+  {
+   "id": "ab_argentan",
+   "name": "Argentan",
+   "airport": "Argentan",
+   "value": 6
+  },
+  {
+   "id": "ab_bernay",
+   "name": "Bernay Saint Martin",
+   "airport": "Bernay Saint Martin",
+   "value": 6
+  },
+  {
+   "id": "ab_beaumont",
+   "name": "Beaumont-le-Roger",
+   "airport": "Beaumont-le-Roger",
+   "value": 5
+  },
+  {
+   "id": "ab_conches",
+   "name": "Conches",
+   "airport": "Conches",
+   "value": 6
+  },
+  {
+   "id": "ab_evreux",
+   "name": "Evreux",
+   "airport": "Evreux",
+   "value": 8
+  },
+  {
+   "id": "ab_st_andre",
+   "name": "Saint-Andre-de-l'Eure",
+   "airport": "Saint-Andre-de-lEure",
+   "value": 7
+  }
+ ],
+ "red_keep": {
+  "1": [
+   "ab_carpiquet",
+   "ab_argentan",
+   "ab_bernay"
+  ]
+ },
+ "wing_weight": {
+  "ab_carpiquet": 1,
+  "ab_lessay": 1,
+  "ab_flers": 1,
+  "ab_argentan": 2,
+  "ab_bernay": 2,
+  "ab_beaumont": 1,
+  "ab_conches": 2,
+  "ab_evreux": 3,
+  "ab_st_andre": 2
+ },
+ "field_tier": {
+  "ab_carpiquet": 2,
+  "ab_lessay": 2,
+  "ab_flers": 3,
+  "ab_argentan": 3,
+  "ab_bernay": 3,
+  "ab_beaumont": 3,
+  "ab_conches": 4,
+  "ab_evreux": 4,
+  "ab_st_andre": 4
+ },
+ "bomber_base": "",
+ "squadrons": [
+  {
+   "id": "fg_354",
+   "name": "354th FG 'Pioneer Mustangs'",
+   "aircraft": "P-51D",
+   "base": "cricqueville",
+   "count": 16,
+   "callsign": "Enfield"
+  },
+  {
+   "id": "fg_352",
+   "name": "352nd FG 'Blue-Nosed Bastards'",
+   "aircraft": "P-51D",
+   "base": "ford",
+   "count": 16,
+   "callsign": "Springfield"
+  },
+  {
+   "id": "fg_365",
+   "name": "365th FG 'Hell Hawks'",
+   "aircraft": "P-47D-30",
+   "base": "deux_jumeaux",
+   "count": 16,
+   "callsign": "Uzi"
+  },
+  {
+   "id": "fg_366",
+   "name": "366th FG",
+   "aircraft": "P-47D-30",
+   "base": "cricqueville",
+   "count": 16,
+   "callsign": "Colt"
+  },
+  {
+   "id": "sq_602",
+   "name": "No. 602 Sqn RAF",
+   "aircraft": "SpitfireLFMkIX",
+   "base": "longues",
+   "count": 16,
+   "callsign": "Dodge"
+  },
+  {
+   "id": "sq_441",
+   "name": "No. 441 Sqn RCAF",
+   "aircraft": "SpitfireLFMkIX",
+   "base": "beny",
+   "count": 16,
+   "callsign": "Ford"
+  },
+  {
+   "id": "sq_401",
+   "name": "No. 401 Sqn RCAF",
+   "aircraft": "SpitfireLFMkIX",
+   "base": "ste_croix",
+   "count": 16,
+   "callsign": "Chevy"
+  },
+  {
+   "id": "sq_21",
+   "name": "No. 21 Sqn RAF",
+   "aircraft": "MosquitoFBMkVI",
+   "base": "tangmere",
+   "count": 12,
+   "callsign": "Pontiac"
+  }
+ ],
+ "support_targets": [
+  {
+   "parent": "ab_argentan",
+   "id": "c2_pzgruppe",
+   "name": "Panzer Group West HQ",
+   "kind": "C2",
+   "airport": "Argentan",
+   "dx": 9000,
+   "dy": -14000,
+   "value": 9
+  },
+  {
+   "parent": "ab_flers",
+   "id": "c2_7armee",
+   "name": "7th Army forward HQ",
+   "kind": "C2",
+   "airport": "Flers",
+   "dx": -6000,
+   "dy": 9000,
+   "value": 8
+  },
+  {
+   "parent": "ab_carpiquet",
+   "id": "fuel_cerisy",
+   "name": "Fuel dump, Foret de Cerisy",
+   "kind": "FUEL",
+   "airport": "Carpiquet",
+   "dx": -9000,
+   "dy": -26000,
+   "value": 6
+  },
+  {
+   "parent": "ab_evreux",
+   "id": "fuel_rouen",
+   "name": "Rouen fuel depot",
+   "kind": "FUEL",
+   "airport": "Evreux",
+   "dx": 30000,
+   "dy": -6000,
+   "value": 6
+  },
+  {
+   "parent": "ab_carpiquet",
+   "id": "depot_bretteville",
+   "name": "Ammunition depot, Bretteville-sur-Laize",
+   "kind": "DEPOT",
+   "airport": "Carpiquet",
+   "dx": -14000,
+   "dy": 3000,
+   "value": 5
+  },
+  {
+   "parent": "ab_evreux",
+   "id": "depot_evreux",
+   "name": "Evreux rail yards",
+   "kind": "DEPOT",
+   "airport": "Evreux",
+   "dx": 3000,
+   "dy": 4000,
+   "value": 6
+  }
+ ],
+ "front": {
+  "from_airport": "Carpiquet",
+  "to_airport": "Bazenville",
+  "zones": 3,
+  "beyond": "Longues-sur-Mer",
+  "deep_zones": 1,
+  "fall": {
+   "2": "bazenville",
+   "3": "longues"
+  },
+  "zone_names": [
+   "Carpiquet",
+   "Rots",
+   "Bretteville",
+   "Bayeux"
+  ]
+ },
+ "tier_labels": [
+  "",
+  "T1 Caen front",
+  "T2 Normandy",
+  "T3 Orne and Seine",
+  "T4 deep (Evreux)"
+ ],
+ "front_names": [
+  "Caen front",
+  "Normandy and the Seine",
+  "deep interdiction"
+ ],
+ "front_desc": [
+  "the Caen front and the beachhead",
+  "the Orne valley and the Seine crossings",
+  "the Luftwaffe's rear airfields around Evreux"
+ ],
+ "title": "Operation STEEL SKIES",
+ "background": "Two weeks after D-Day the beachhead holds, but Caen has not fallen. Panzer divisions are massing around Carpiquet to drive the Allies back to the beaches, and the Luftwaffe is moving fighter groups forward to fields south of the Seine. Allied fighter-bombers fly from hastily built landing grounds in Normandy and from bases on the English south coast: keep the panzers off the beachhead, wreck the flak and the rear airfields, and win the sky over Normandy.",
+ "climate": {
+  "source": "Approximate Caen normals, hand-set (not measured): sunshine share and rain days per month; wind and dawn fog tuned by hand.",
+  "sun_frac": [
+   0.25,
+   0.3,
+   0.35,
+   0.42,
+   0.45,
+   0.47,
+   0.48,
+   0.49,
+   0.45,
+   0.37,
+   0.27,
+   0.22
+  ],
+  "rain_frac": [
+   0.42,
+   0.38,
+   0.38,
+   0.35,
+   0.35,
+   0.3,
+   0.28,
+   0.28,
+   0.32,
+   0.4,
+   0.43,
+   0.43
+  ],
+  "wind_ms": [
+   6.0,
+   5.8,
+   5.5,
+   5.0,
+   4.5,
+   4.2,
+   4.0,
+   4.0,
+   4.5,
+   5.2,
+   5.6,
+   6.0
+  ],
+  "fog": [
+   0.15,
+   0.12,
+   0.1,
+   0.08,
+   0.07,
+   0.06,
+   0.06,
+   0.08,
+   0.12,
+   0.16,
+   0.18,
+   0.17
+  ]
+ }
+}

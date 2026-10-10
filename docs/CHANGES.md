@@ -1,3 +1,11 @@
+## Danica 0.4 - WWII: Normandy 1944
+* New theatre: **Normandy 1944**, Allies (US and UK) against Germany in the Caen battles of June 1944. You fly from the Normandy landing grounds (B-2 Bazenville, B-3, B-4, B-11, A-2, A-4) and from RAF Ford and Tangmere. The Luftwaffe holds Carpiquet, Lessay, Flers, Argentan, Bernay, Beaumont, Conches, Evreux and Saint-Andre. The ground war runs from Carpiquet toward the beachhead.
+* The Allied squadrons are the 354th and 352nd FG (P-51D), the 365th and 366th FG (P-47D), Nos. 602, 441 and 401 Sqn (Spitfire IX) and No. 21 Sqn (Mosquito). New Campaign shows only Allied aircraft on Normandy and starts in June 1944.
+* WWII doctrine: no carrier, no AWACS, no tankers, no IFF or laser codes. Flak batteries (2 cm, 8.8 cm with Wurzburg radar, Flak 41) stand in for SAMs, with Freya early warning. "Flak suppression" missions go after the heavy flak, and German Ju 88 raids hit the landing grounds. Radios are VHF, the band WWII sets can tune. Briefings, kneeboards and campaign phases use 1944 wording.
+* Engine changes any theatre can use: the carrier is optional, a theatre has a `year` and `default_start`, faction countries missing from pydcs's default coalitions (Third Reich) are added, and squadron callsigns are checked against DCS's own list. A bad callsign now gives a clear error instead of a crash; this also fixes a latent crash when raising a new squadron.
+* Generic loadouts know British and German bombs (Spitfire 250/500 lb, SC 250/500). German fighters fly on their guns without a warning.
+* Modern campaigns are unchanged (mission fingerprint byte-identical).
+
 ## Danica 0.3 - red squadrons
 * Red's air force is real squadrons now, the same record Blue uses: one squadron per type at each red airfield, named the way its faction does it (31 IAP, 32 BAP for Russia; JG 1 and KG 1 for Germany; 352 FG for the Allies). Hover a row on the Forces page to see a field's squadrons.
 * Losses land on the squadron that flew. A shot-down MiG-29S comes off the MiG-29S squadron, not the whole field. The debrief names the squadron. Replacements fill the emptiest squadron first.

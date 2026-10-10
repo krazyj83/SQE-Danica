@@ -55,11 +55,16 @@ def _may_base(spec, kind) -> bool:
 
 
 def _callsign_for(st, spec) -> str:
+    """An unused callsign DCS accepts for this type (DCS has a fixed list: Enfield, Springfield, Uzi ... plus a few per type)."""
+    from . import callsigns
     used = {q.callsign for q in st.squadrons.values()}
-    for cs in ("Hawg", "Ford", "Dodge", "Chevy", "Pontiac", "Colt", "Enfield", "Lancer", "Sabre", "Mustang", "Spitfire", "Hammer"):
-        if cs not in used:
-            return cs
-    return f"Flight{len(used) + 1}"
+    valid = list(callsigns.table(spec.key))
+    free = [cs for cs in valid if cs not in used]
+    if free:
+        return free[0]
+    from collections import Counter                              # every name taken: share the least-used one (flight numbers keep groups apart)
+    c = Counter(q.callsign for q in st.squadrons.values() if q.callsign in valid)
+    return min(valid, key=lambda v: c.get(v, 0))
 
 
 def _offset(x, y, hdg, d):
@@ -113,10 +118,11 @@ def new_campaign(name: str, player_aircraft: str, level: int = 2, theatre: str =
     st = CampaignState(name=name, theatre=theatre, level=d.level, start_date=start_date, night_ops=night_ops, factions=dict(fx))
 
     # ---- friendly bases ---------------------------------------------------------------------
-    cv = th["carrier"]
-    kb = ap(cv["from_airport"])
-    cx, cy = _offset(kb.x, kb.y, cv["heading"], cv["distance_m"])
-    st.bases[cv["id"]] = Base(cv["id"], cv["name"], BaseKind.CARRIER, x=cx, y=cy)
+    cv = th.get("carrier")
+    if cv:                                                          # optional: Normandy has no carrier
+        kb = ap(cv["from_airport"])
+        cx, cy = _offset(kb.x, kb.y, cv["heading"], cv["distance_m"])
+        st.bases[cv["id"]] = Base(cv["id"], cv["name"], BaseKind.CARRIER, x=cx, y=cy)
     for f in th["blue_fields"]:
         p = ap(f["airport"])
         st.bases[f["id"]] = Base(f["id"], f["name"], BaseKind.AIRFIELD, x=p.x, y=p.y, airport=f["airport"])
@@ -133,6 +139,11 @@ def new_campaign(name: str, player_aircraft: str, level: int = 2, theatre: str =
         cnt = n(12)
         st.squadrons[sid] = Squadron(sid, f"{spec.display} squadron", player_aircraft, bid, cnt, cnt, _callsign_for(st, spec))
         player_squadron = sid
+    from . import callsigns as _cs
+    for s in st.squadrons.values():                       # DCS only knows its own callsign list; a pack with another name would break the build
+        if s.callsign not in _cs.table(s.aircraft):
+            raise ValueError(f"{s.name}: callsign {s.callsign!r} is not one DCS knows for {AIRCRAFT[s.aircraft].display}. "
+                             f"Use one of: {', '.join(_cs.table(s.aircraft))}")
     for s in st.squadrons.values():                       # sanity: land jets on land, carrier jets on the boat (carrier-capable types may use both)
         spec, base = AIRCRAFT[s.aircraft], st.bases[s.base_id]
         if not _may_base(spec, base.kind):

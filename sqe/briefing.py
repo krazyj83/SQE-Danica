@@ -30,6 +30,7 @@ def build_text(state, pkg, tl: dict, plan, rng: random.Random, tgt_xy, x: dict) 
     """x: date, whois, mode3, laser, bingo, joker, bullseye, divert, weather, link16(bool)."""
     pf = pkg.player_flight
     spec = AIRCRAFT[pf.aircraft]
+    ww2 = x.get("era") == "ww2"
     n, pname, ptext = narrative.phase(state)
     obj = pkg.objective
     threats = threat_lines(state, *tgt_xy)
@@ -71,19 +72,20 @@ def build_text(state, pkg, tl: dict, plan, rng: random.Random, tgt_xy, x: dict) 
         tower, jtac_at = "ATC COMM1 CH1", "COMM1 CH4"
     adm = [f"BINGO {x['bingo']} lb   JOKER {x['joker']} lb",
            "Recovery: " + (f"carrier Case I, TACAN 74X, ICLS 11, {tower}" if spec.home.value == "CARRIER" else f"home field, tower {tower.replace('ATC ', 'on ')}"),
-           f"Divert: {x['divert']}", "Tanker track is steerpoint TKR. Bullseye is the last steerpoint."]
+           f"Divert: {x['divert']}", ("Tanker track is steerpoint TKR. " if x.get("tanker", True) else "") + "Bullseye is the last steerpoint."]
     if spec.fc3:
         com = ["Frequencies: " + " | ".join(f"{e.label} {e.mhz:.3f}" for e in list(plan.comm1.values()) + list(plan.comm2.values()))]
     else:
-        com = ["COMM1 (UHF): " + " | ".join(f"CH{c} {e.label} {e.mhz:.3f}" for c, e in plan.comm1.items()),
-               "COMM2 (VHF): " + " | ".join(f"CH{c} {e.label} {e.mhz:.3f}" for c, e in plan.comm2.items())]
-    com += [f"IFF Mode 3: {x['mode3']}    Laser code: {x['laser']}", f"Bullseye: {x['bullseye']}"]
+        com = [("RADIO (VHF): " if ww2 else "COMM1 (UHF): ") + " | ".join(f"CH{c} {e.label} {e.mhz:.3f}" for c, e in plan.comm1.items()),
+               ("FLIGHT (VHF): " if ww2 else "COMM2 (VHF): ") + " | ".join(f"CH{c} {e.label} {e.mhz:.3f}" for c, e in plan.comm2.items())]
+    com += ([] if ww2 else [f"IFF Mode 3: {x['mode3']}    Laser code: {x['laser']}"]) + [f"Bullseye: {x['bullseye']}"]
     if x.get("link16"):
         com.append("Package aircraft share a datalink; the AWACS feeds it. Station numbers (STN) are on your kneeboard.")
     if pkg.jtac:
         if jtac_at is None:
             jtac_at = f"{plan.freq('JTAC'):.3f}" if any(e.label == "JTAC" for e in plan.comm1.values()) else "its briefed frequency"
-        com.append(f"JTAC (Axeman) is with our troops in contact, on {jtac_at}. Laser code {pkg.jtac_laser_code}.")
+        com.append(f"Forward air controller (Axeman) is with our troops in contact, on {jtac_at}. He marks with smoke." if ww2 else
+                   f"JTAC (Axeman) is with our troops in contact, on {jtac_at}. Laser code {pkg.jtac_laser_code}.")
     text = {"situation": "\n".join(sit), "mission": "\n".join(mis), "execution": "\n".join(exe),
             "admin": "\n".join(adm), "comms": "\n".join(com), "threats": threats}
     text["full"] = (f"1. SITUATION\n{text['situation']}\n\n2. MISSION\n{text['mission']}\n\n3. EXECUTION\n{text['execution']}"

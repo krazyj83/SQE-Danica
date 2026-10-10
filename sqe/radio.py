@@ -60,6 +60,7 @@ class RadioPlan:
 class FrequencyAllocator:
     """Unique, tidy (0.5 MHz grid) frequencies. Deterministic for a given rng."""
     UHF = (225.0, 399.5)
+    VHF_WW2 = (100.0, 126.5)          # WWII VHF sets; stays clear of the 127-137 MHz intra-flight band
 
     def __init__(self, rng: random.Random):
         self.rng = rng
@@ -79,7 +80,10 @@ class FrequencyAllocator:
 
 
 def build_radio_plan(package, state, atc_mhz: float, rng: random.Random,
-                     layout: RadioLayout, mcfg: RadioCfg, divert_mhz: float | None = None, divert_name: str = "") -> RadioPlan:
+                     layout: RadioLayout, mcfg: RadioCfg, divert_mhz: float | None = None, divert_name: str = "",
+                     band: tuple | None = None) -> RadioPlan:
+    """band: where the COMM1 entities go. UHF for modern jets; a WWII package passes VHF_WW2, the only band its radios (SCR-522, TR.1143) reach."""
+    band = band or FrequencyAllocator.UHF
     alloc = FrequencyAllocator(rng)
     alloc.reserve(atc_mhz)
     if divert_mhz:
@@ -99,7 +103,9 @@ def build_radio_plan(package, state, atc_mhz: float, rng: random.Random,
             continue
         if label in layout.optional and not (package.jtac if label == "JTAC" else label in sup):
             continue
-        f = alloc.pick(*FrequencyAllocator.UHF)
+        if label in ("AWACS", "TANKER1") and label not in sup:     # no AWACS / tanker in this package (WWII, or nobody refuels): no channel
+            continue
+        f = alloc.pick(*band)
         s = sup.get(label)
         callsign = f"{s.label} {package.number}-1" if s else ""
         note = ""
