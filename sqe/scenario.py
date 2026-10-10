@@ -7,7 +7,7 @@ from __future__ import annotations
 import math
 import random
 from .difficulty import Difficulty, get as get_difficulty
-from .models import (Base, BaseKind, Squadron, EnemyAsset, AssetKind, EnemyAirWing, PlayerProfile)
+from .models import (Base, BaseKind, Squadron, EnemyAsset, AssetKind, PlayerProfile)
 from .state import CampaignState
 from .aircraft import AIRCRAFT
 from . import factions, ground, theatres
@@ -149,6 +149,7 @@ def new_campaign(name: str, player_aircraft: str, level: int = 2, theatre: str =
     for aid, nm, apt, val in fields:
         p = ap(apt)
         add(aid, nm, AssetKind.AIRFIELD, p.x, p.y, val, apt, tier=FIELD_TIER.get(aid, 3))
+    namer = factions.unit_namer("red")
     ww = {k: v for k, v in th["wing_weight"].items() if k in live}
     total_w = sum(ww.values())
     for aid, w in ww.items():
@@ -156,10 +157,10 @@ def new_campaign(name: str, player_aircraft: str, level: int = 2, theatre: str =
         squads = max(1, round(cnt / 14))                   # several squadrons per field at the bigger levels
         pool = factions.enemy_types(d.level, d.enemy_types)
         types = rng.sample(pool, k=min(len(pool), 1 + min(2, squads)))
-        st.enemy_air.append(EnemyAirWing(aid, types, cnt, cnt, squads))
+        st.add_red_wing(aid, types, cnt, name_fn=namer)              # one red squadron per type at the field (the AirWing view sums them)
 
     if d.bomber_wing > 0 and th["bomber_base"] in live and factions.bomber():   # strategic bombers live far from the front (Mozdok in the Caucasus)
-        st.enemy_air.append(EnemyAirWing(th["bomber_base"], [factions.bomber()], d.bomber_wing, d.bomber_wing))
+        st.add_red_wing(th["bomber_base"], [factions.bomber()], d.bomber_wing, name_fn=namer)
 
     # ---- air defence clusters ----------------------------------------------------------------------
     variants = factions.sam_variants(d.level, d.sam_variants)

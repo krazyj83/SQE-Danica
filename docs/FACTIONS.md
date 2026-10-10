@@ -36,6 +36,7 @@ Every pack may hold every section. When red gets real squadrons and bases (the n
 | `air.fighters` | pydcs class names of the fighters (`Bf_109K_4`) |
 | `air.radius_nm`, `air.intercept_nm` | combat radius and scramble range per type |
 | `air.types_by_level` | `{"1": [...], "2": [...], "3": [...]}`: the types in the air wings at each difficulty |
+| `air.unit_names`, `air.unit_number_start` | how the side names its units: `{"fighter": "JG {n}", "strike": "KG {n}", "bomber": "KG {n}"}` and the first number |
 | `air.striker`, `air.bomber` | the airfield-raid type and the anti-ship bomber; empty means none |
 | `air_defence.variants` | site types: `{id: {label, name, value, range_nm, envelope_ft, weight, radar, long_range, mobile, units}}`. Ids are global across packs, so they must be unique |
 | `air_defence.track_radars`, `search_radars` | unit type names as DCS stores them, e.g. `"FuSe-65"` |

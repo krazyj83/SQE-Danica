@@ -400,9 +400,14 @@ def apply_debrief(state: CampaignState, manifest: Manifest, data: dict) -> dict:
         elif g["kind"] == "enemy_air":
             w = state.enemy_air_at(g["ref"])
             if w and dead:
-                w.available = max(0, w.available - len(dead))
+                sq = w.of_type(g.get("type", ""))          # the squadron that flew it; older manifests (no type) spread it over the field
+                if sq is not None and sq.available >= len(dead):
+                    sq.available -= len(dead)
+                else:
+                    w.available = max(0, w.available - len(dead))
                 out["red_air_lost"] += len(dead)
-                out["lines"].append(f"{len(dead)} enemy aircraft from {state.assets[g['ref']].name} destroyed")
+                who = f"{sq.name}, " if sq is not None else ""
+                out["lines"].append(f"{len(dead)} enemy aircraft from {who}{state.assets[g['ref']].name} destroyed")
     # a raid you were sent to stop: bombers still alive when they reached their base got through
     t_now = float(data.get("time", 0) or 0)
     for g in manifest.groups:

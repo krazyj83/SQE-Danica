@@ -1,3 +1,10 @@
+## Danica 0.3 - red squadrons
+* Red's air force is real squadrons now, the same record Blue uses: one squadron per type at each red airfield, named the way its faction does it (31 IAP, 32 BAP for Russia; JG 1 and KG 1 for Germany; 352 FG for the Allies). Hover a row on the Forces page to see a field's squadrons.
+* Losses land on the squadron that flew. A shot-down MiG-29S comes off the MiG-29S squadron, not the whole field. The debrief names the squadron. Replacements fill the emptiest squadron first.
+* Everything that thought in air wings (planning, threat, raids, counter-air) reads a live view over the squadrons. Totals are unchanged, and a mission fingerprint over 15 campaigns and 45 missions is byte-identical to before.
+* Save format 6. Older campaigns are migrated when you open them: each wing is split into squadrons with the same totals.
+* Groundwork for the next steps: red squadrons can be based, supplied and (later) flown by players the same way as blue ones.
+
 ## Danica 0.2 - faction packs
 * Who fights with what is now data. Each campaign has a blue and a red faction pack (docs/FACTIONS.md): countries, aircraft, air-defence site types, ground forces, ships and support aircraft. The hard-coded USA/Russia, Stennis, Patriot, E-3/KC-135, MiGs and SAM tables moved into `modern_usa` and `modern_russia`.
 * Modern campaigns are unchanged. A mission fingerprint over 15 campaigns and 45 missions is byte-identical before and after.

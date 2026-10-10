@@ -63,10 +63,63 @@ class Squadron:
     authorized: int
     available: int
     callsign: str = "Viper"
+    side: str = "blue"          # "blue" (state.squadrons, base_id = a Base) | "red" (state.red_squadrons, base_id = a red airfield asset)
 
     @property
     def readiness(self) -> float:
         return self.available / self.authorized if self.authorized else 0.0
+
+
+class AirWing:
+    """Everything red has at one airfield, seen as one wing: a live view over that field's red squadrons.
+
+    Code that thinks in wings (planning, threat, raids, the debrief) keeps working: reading `available` sums the squadrons, and setting it
+    spreads the change over them (losses come off the fullest squadron first, replacements go to the emptiest). The squadrons are what
+    is saved."""
+    def __init__(self, base_asset_id: str, units: list):
+        self.base_asset_id = base_asset_id
+        self.units = units                                   # the Squadron objects (side "red") at this field
+
+    @property
+    def types(self) -> list:
+        out = []
+        for q in self.units:
+            if q.aircraft not in out:
+                out.append(q.aircraft)
+        return out
+
+    @property
+    def squadrons(self) -> int:
+        return len(self.units)
+
+    @property
+    def authorized(self) -> int:
+        return sum(q.authorized for q in self.units)
+
+    @property
+    def available(self) -> int:
+        return sum(q.available for q in self.units)
+
+    @available.setter
+    def available(self, value: int) -> None:
+        value = max(0, int(value))
+        delta = value - self.available
+        while delta < 0 and self.units:
+            q = max(self.units, key=lambda q: q.available)
+            if q.available <= 0:
+                break
+            q.available -= 1
+            delta += 1
+        while delta > 0 and self.units:
+            q = min(self.units, key=lambda q: (q.readiness >= 1.0, q.readiness))
+            q.available += 1
+            delta -= 1
+
+    def of_type(self, aircraft: str):
+        return next((q for q in self.units if q.aircraft == aircraft), None)
+
+    def __repr__(self):
+        return f"AirWing({self.base_asset_id}, {self.types}, {self.available}/{self.authorized})"
 
 
 @dataclass
@@ -90,13 +143,6 @@ class EnemyAsset:
         return self.health <= 0.05
 
 
-@dataclass
-class EnemyAirWing:
-    base_asset_id: str
-    types: list[str]            # pydcs plane class names, e.g. ["MiG_29A", "F_4E"]
-    authorized: int
-    available: int
-    squadrons: int = 1          # how many squadrons the wing is made of (display / flavour)
 
 
 @dataclass

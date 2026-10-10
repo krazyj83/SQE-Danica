@@ -270,8 +270,9 @@ class ForcesPage(QWidget):
             self.sq.setCellWidget(i, 5, self._bar(s.readiness, theme.BLUE))
         self.ea.setRowCount(len(st.enemy_air))
         for i, w in enumerate(st.enemy_air):
+            tip = "\n".join(f"{q.name}: {q.available} / {q.authorized}" for q in w.units)      # red squadrons at this field
             for j, v in enumerate((st.assets[w.base_asset_id].name + (f"  ({w.squadrons} squadrons)" if w.squadrons > 1 else ""), ", ".join(w.types), f"{w.available} / {w.authorized}")):
-                self.ea.setItem(i, j, _item(v))
+                it = _item(v); it.setToolTip(tip); self.ea.setItem(i, j, it)
             self.ea.setCellWidget(i, 3, self._bar(w.available / max(1, w.authorized), theme.RED))
         bl = list(st.bases.values()); self.bs.setRowCount(len(bl))
         for i, b in enumerate(bl):

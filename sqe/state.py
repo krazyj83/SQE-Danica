@@ -9,7 +9,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
 from . import FORMAT_VERSION
-from .models import (Base, BaseKind, Squadron, EnemyAsset, AssetKind, EnemyAirWing, PlayerProfile)
+from .models import (Base, BaseKind, Squadron, EnemyAsset, AssetKind, AirWing, PlayerProfile)
 
 
 @dataclass
@@ -24,7 +24,7 @@ class CampaignState:
     bases: dict = field(default_factory=dict)
     squadrons: dict = field(default_factory=dict)
     assets: dict = field(default_factory=dict)
-    enemy_air: list = field(default_factory=list)
+    red_squadrons: dict = field(default_factory=dict)  # red's squadrons (Squadron, side "red"), at red airfields (base_id = asset id)
     plan: list = field(default_factory=list)       # today's packages as dicts
     pending: dict | None = None                    # the sortie that has been built but not yet debriefed
     history: list = field(default_factory=list)    # one dict per debriefed sortie
@@ -49,8 +49,39 @@ class CampaignState:
     def note(self, text: str) -> None:
         self.log.append(f"[day {self.day}] {text}")
 
+    @property
+    def enemy_air(self) -> list:
+        """Red's air force as one AirWing per airfield (a live view over red_squadrons; stable objects, so `w is bw` works)."""
+        key = tuple((q.id, q.base_id) for q in self.red_squadrons.values())
+        cache = self.__dict__.get("_wings")
+        if cache is None or cache[0] != key:
+            by_base: dict = {}
+            for q in self.red_squadrons.values():
+                by_base.setdefault(q.base_id, []).append(q)
+            cache = (key, [AirWing(b, qs) for b, qs in by_base.items()])
+            self.__dict__["_wings"] = cache
+        return cache[1]
+
     def enemy_air_at(self, asset_id: str):
         return next((w for w in self.enemy_air if w.base_asset_id == asset_id), None)
+
+    def add_red_wing(self, base_asset_id: str, types: list, count: int, name_fn=None) -> list:
+        """Raise red squadrons at an airfield: `count` aircraft split over `types` (in that order; the first types get the remainder)."""
+        types = [t for t in types if t] or []
+        if not types or count <= 0:
+            return []
+        k = len(types)
+        out = []
+        for i, t in enumerate(types):
+            n = count // k + (1 if i < count % k else 0)
+            if n <= 0:
+                continue
+            sid = f"red_{base_asset_id}_{len([q for q in self.red_squadrons.values() if q.base_id == base_asset_id]) + 1}"
+            name = name_fn(t) if name_fn else f"{t} squadron"
+            q = Squadron(sid, name, t, base_asset_id, n, n, "", "red")
+            self.red_squadrons[sid] = q
+            out.append(q)
+        return out
 
     def squadrons_for(self, aircraft_key: str) -> list:
         return [s for s in self.squadrons.values() if s.aircraft == aircraft_key]
@@ -67,7 +98,7 @@ class CampaignState:
             "bases": {k: {**asdict(v), "kind": v.kind.value} for k, v in self.bases.items()},
             "squadrons": {k: asdict(v) for k, v in self.squadrons.items()},
             "assets": {k: {**asdict(v), "kind": v.kind.value} for k, v in self.assets.items()},
-            "enemy_air": [asdict(w) for w in self.enemy_air],
+            "red_squadrons": {k: asdict(v) for k, v in self.red_squadrons.items()},
             "raids": self.raids, "factions": self.factions,
             "sams": self.sams,
             "blue_assets": {k: {**asdict(v), "kind": v.kind.value} for k, v in self.blue_assets.items()},
@@ -90,7 +121,12 @@ class CampaignState:
         s.bases = {k: Base(**{**v, "kind": BaseKind(v["kind"])}) for k, v in d["bases"].items()}
         s.squadrons = {k: Squadron(**v) for k, v in d["squadrons"].items()}
         s.assets = {k: EnemyAsset(**{**v, "kind": AssetKind(v["kind"])}) for k, v in d["assets"].items()}
-        s.enemy_air = [EnemyAirWing(**w) for w in d["enemy_air"]]
+        if "red_squadrons" in d:
+            s.red_squadrons = {k: Squadron(**v) for k, v in d["red_squadrons"].items()}
+        else:                                      # format 5 and older: air-wing counters become squadrons (same totals, split per type)
+            for w in d.get("enemy_air", []):
+                made = s.add_red_wing(w["base_asset_id"], list(w["types"]), int(w["authorized"]))
+                AirWing(w["base_asset_id"], made).available = int(w["available"])
         s.ground = d.get("ground") or {}
         s.raids = d.get("raids") or {}
         s.sams = d.get("sams") or {}

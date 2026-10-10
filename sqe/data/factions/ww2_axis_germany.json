@@ -43,7 +43,13 @@
    ]
   },
   "striker": "Ju_88A4",
-  "bomber": ""
+  "bomber": "",
+  "unit_names": {
+   "fighter": "JG {n}",
+   "strike": "KG {n}",
+   "bomber": "KG {n}"
+  },
+  "unit_number_start": 1
  },
  "air_defence": {
   "variants": {

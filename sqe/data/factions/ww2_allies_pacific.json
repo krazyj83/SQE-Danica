@@ -43,7 +43,13 @@
    ]
   },
   "striker": "A_20G",
-  "bomber": "B_17G"
+  "bomber": "B_17G",
+  "unit_names": {
+   "fighter": "VF-{n}",
+   "strike": "VB-{n}",
+   "bomber": "{n} BG"
+  },
+  "unit_number_start": 10
  },
  "air_defence": {
   "variants": {},
