@@ -70,6 +70,9 @@ class Session:
         from . import factions
         self.state.factions = self.state.factions or factions.for_theatre(th)
         factions.use(**self.state.factions)
+        from . import logistics
+        if logistics.ensure(self.state):                 # a campaign from before logistics: stock every base now
+            self.state.note("Logistics: every base now holds fuel, ammunition and spares, and the supply chain ships them forward each night.")
         self.sync_terrain()
         self.path = Path(path)
         self.settings.last_campaign = str(path)
@@ -115,7 +118,8 @@ class Session:
         def build_all(forced: set) -> list:
             # Packages launch at different times of day, so an aircraft can fly more than one sortie: each package sees every
             # serviceable airframe, but no squadron is asked for more than two sorties per airframe per day.
-            daily = {sid: 2 * q.available for sid, q in st.squadrons.items()}
+            from . import logistics
+            daily = {sid: min(2 * q.available, logistics.sortie_cap(st, q)) for sid, q in st.squadrons.items()}   # fuel and ammunition at the base cap it too
             out = []
             for i, o in enumerate(objs, 1):
                 ledger = Ledger(st)

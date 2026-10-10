@@ -210,6 +210,8 @@ def new_campaign(name: str, player_aircraft: str, level: int = 2, theatre: str =
         add(f"fsam_{i+1}", f"Column {chr(65 + i)} {SAM_LABEL[v]}", AssetKind.SAM, sx, sy, SAM_VALUE[v], variant=v, tier=1)
 
     snap_assets_to_land(st)                                          # nothing is generated in the sea
+    from . import logistics
+    logistics.build(st)                                              # every base on both sides stocked, supply sources worked out
     sams = [x for x in st.assets.values() if x.kind == AssetKind.SAM]
     for x in st.assets.values():
         if x.kind in (AssetKind.SAM, AssetKind.EWR):

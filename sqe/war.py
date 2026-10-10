@@ -280,15 +280,22 @@ class WarSimulator:
     def end_day(self, state: CampaignState) -> None:
         d = self.d
         sams.track(state)                                           # the day each SAM site went down (it can be rebuilt later)
+        from . import logistics
+        if logistics.active(state):                                 # the day's flying uses fuel and ammunition; the supply chain ships overnight
+            logistics.consume_day(state, state.plan)
+            for ln in logistics.deliver_day(state, self.rng):
+                state.note("Logistics: " + ln)
         for sq in state.squadrons.values():
             if sq.available < sq.authorized:
-                sq.available = min(sq.authorized, sq.available + max(1, round(sq.authorized * d.friendly_replenish)))
+                want = min(sq.authorized - sq.available, max(1, round(sq.authorized * d.friendly_replenish)))
+                sq.available += logistics.repair_allowance(state, sq.base_id, want)        # replacements need spares at the base
         for w in state.enemy_air:
             if state.assets[w.base_asset_id].destroyed:             # a cratered field cannot operate or rearm: the survivors scatter or are lost
                 w.available = int(w.available * 0.75)
                 continue
             if w.available < w.authorized:
-                w.available = min(w.authorized, w.available + max(1, round(w.authorized * d.enemy_replenish)))
+                want = min(w.authorized - w.available, max(1, round(w.authorized * d.enemy_replenish)))
+                w.available = w.available + logistics.repair_allowance(state, w.base_asset_id, want)
         for a in state.assets.values():
             if 0 < a.health < 1.0:
                 a.health = min(1.0, a.health + (d.sam_repair if a.kind == AssetKind.SAM else d.asset_repair))

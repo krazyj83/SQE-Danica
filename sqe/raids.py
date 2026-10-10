@@ -25,7 +25,8 @@ RAID_PRIORITY = 8.0
 
 def _bomber_wings(state) -> list:
     from . import factions
-    return [w for w in state.enemy_air if factions.striker() in w.types and w.available >= 2 and not state.assets[w.base_asset_id].destroyed]
+    from . import logistics
+    return [w for w in state.enemy_air if factions.striker() in w.types and logistics.operational(state, w.base_asset_id) and w.available >= 2 and not state.assets[w.base_asset_id].destroyed]
 
 
 def target_weights(state) -> list:
