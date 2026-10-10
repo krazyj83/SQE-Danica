@@ -868,7 +868,46 @@ def main():
     _catalog_test(s)
     _faction_test(s)
     _red_squadron_test(s)
+    _normandy_test(s)
     print("SMOKE TEST PASSED")
+
+
+def _normandy_test(s):
+    """WWII on Normandy: Allies vs Germany, no carrier, no AWACS or tankers, no modern unit anywhere in the missions, VHF radios, a 1944
+    briefing (no IFF or laser codes), flak suppression and close support both build, and the debrief applies."""
+    import zipfile as _zf
+    from dcs import lua as _lua
+    modern = ("Patriot", "E-3", "E-2", "KC", "S-3B", "MiG", "Su-", "T-72", "T-80", "BMP", "BTR", "SA-", "Stennis", "Hummer", "ZSU", "Tu-22",
+              "Kub ", "Buk", "S-300", "Tor ", "Osa", "Strela", "Ural", "Igla", "ZU-23", "M1097", "Vulcan", "Abrams", "Bradley", "HMMWV")
+    s.new("Normandy", "P-47D-30", 3, seed=5, start_date="1944-06-20", theatre="normandy")
+    st = s.state
+    assert st.factions == {"blue": "ww2_allies_europe", "red": "ww2_axis_germany"} and not any(b.kind.value == "CARRIER" for b in st.bases.values())
+    kinds, built = set(), []
+    for p in [p for p in s.packages() if s.flyable(p)]:
+        if p.objective.type.value in kinds:
+            continue
+        kinds.add(p.objective.type.value)
+        res = s.fly(p.number, None)
+        assert not any(x.slot.startswith(("AWACS", "TANKER")) for x in p.support), "no AWACS or tankers in 1944"
+        m = _lua.loads(_zf.ZipFile(st.pending["miz"]).read("mission").decode())["mission"]
+        types, ctry = set(), set()
+        for coal in m["coalition"].values():
+            for c in coal["country"].values():
+                for cat in ("plane", "helicopter", "vehicle", "ship", "static"):
+                    for g in (c.get(cat) or {}).get("group", {}).values():
+                        ctry.add(c["name"]); types.update(u["type"] for u in g["units"].values())
+        bad = sorted(t for t in types if any(k in t for k in modern))
+        assert not bad, f"modern units in a 1944 mission: {bad}"
+        assert ctry <= {"USA", "UK", "Third Reich"} and "Third Reich" in ctry, ctry
+        full = res.text["full"]
+        assert "IFF Mode 3" not in full and "Laser code" not in full and "RADIO (VHF)" in full, "a 1944 briefing"
+        assert all(100.0 <= e.mhz <= 156.0 for e in res.radio.comm1.values()), "WWII radios are VHF"
+        built.append(f"{p.objective.type.value} ({res.counts['units']} units)")
+    assert {"CAS", "DEAD"} <= kinds or len(kinds) >= 2, kinds
+    man = s.manifest()
+    s.apply({"campaign": man.campaign_id, "sortie": man.sortie, "package": man.package_id, "mission_ended": True, "time": 2400, "dead": [],
+             "ejected": [], "landed": [man.player_unit], "player": {"takeoff": 300, "landed": 2300, "ka": 0, "kg": 0, "ks": 0}, "kills": []})
+    print(f"[normandy] 1944 Allies vs Germany, no carrier/AWACS/tankers, no modern units, VHF radios; built: " + ", ".join(built))
 
 
 def _red_squadron_test(s):

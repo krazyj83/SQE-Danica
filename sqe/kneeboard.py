@@ -153,8 +153,9 @@ def render_pages(outdir, ctx: dict) -> list:
     f = _Form(head)
     f.band("FUEL")
     f.row([(0, f"BINGO {ctx['bingo']}"), (17, f"JOKER {ctx['joker']}")], True)
-    f.band("CODES")
-    f.row([(0, f"IFF M3 {ctx['mode3']}"), (17, f"LASER {ctx['laser']}")], True)
+    if ctx.get("era") != "ww2":                         # 1944: no transponders, no laser codes
+        f.band("CODES")
+        f.row([(0, f"IFF M3 {ctx['mode3']}"), (17, f"LASER {ctx['laser']}")], True)
     f.band("WEATHER")
     f.row([(0, ctx.get("weather_short") or ctx["weather"])], True)
     if ctx.get("target_data"):
@@ -164,9 +165,14 @@ def render_pages(outdir, ctx: dict) -> list:
         f.line(ctx["objective"], color=DIM)
     f.band("BULLSEYE")
     f.row([(0, ctx["bullseye"])])
-    f.band("", [(0, "PACKAGE (STN = LINK 16 / SADL)"), (19, "TYPE"), (26, "TASK"), (34, "M3"), (39, "STN")])
-    for r in ctx["whois"]:
-        f.row([(0, r["cs"].replace("..", "-")[:18]), (19, r["ac"]), (26, r["role"][:7]), (34, r["m3"]), (39, r["stn"][:5])], r["you"], gap=4)
+    if ctx.get("era") == "ww2":
+        f.band("", [(0, "PACKAGE"), (19, "TYPE"), (26, "TASK")])
+        for r in ctx["whois"]:
+            f.row([(0, r["cs"].replace("..", "-")[:18]), (19, r["ac"]), (26, r["role"][:7])], r["you"], gap=4)
+    else:
+        f.band("", [(0, "PACKAGE (STN = LINK 16 / SADL)"), (19, "TYPE"), (26, "TASK"), (34, "M3"), (39, "STN")])
+        for r in ctx["whois"]:
+            f.row([(0, r["cs"].replace("..", "-")[:18]), (19, r["ac"]), (26, r["role"][:7]), (34, r["m3"]), (39, r["stn"][:5])], r["you"], gap=4)
     pages.append(f.save(outdir / "2_fuel_codes_package.png"))
 
     # ------------------------------------------------ page 3: other packages, threats, intelligence
@@ -180,7 +186,7 @@ def render_pages(outdir, ctx: dict) -> list:
                 f.line(o["status"], False, DIM, indent=1, gap=4)
             f.line(o["flights"], False, DIM, indent=1, gap=8, hang=3)
     f.band("THREATS NEAR TARGET")
-    for t in (ctx["threats"][:8] or ["No known SAM or radar sites within 60 nm."]):
+    for t in (ctx["threats"][:8] or ["No known flak or radar sites within 60 nm." if ctx.get("era") == "ww2" else "No known SAM or radar sites within 60 nm."]):
         f.line("- " + t, gap=7)
     f.band("INTELLIGENCE")
     f.line(f"About {ctx['n_def']} enemy fighters (CAP and alert aircraft) in the area." if ctx["n_def"]

@@ -156,7 +156,7 @@ def preset_loadout(cls, role: Role) -> dict | None:
 
 _G_HEAVY = ["AIM_120", "R_77", "R_27ER", "AIM_7", "R_24R"]
 _G_SHORT = ["AIM_9", "R_73", "R_60", "R_13M", "R_3S"]
-_A2G = ["Mk_82", "FAB_250", "AN_M64", "SC_250", "FAB_100", "M117", "Mk_81", "HVAR", "S_5", "LAU_68", "Mk_20"]
+_A2G = ["Mk_82", "FAB_250", "AN_M64", "SC_250", "FAB_100", "M117", "Mk_81", "HVAR", "S_5", "LAU_68", "Mk_20", "British_GP_500", "British_GP_250", "AN_M57", "SC_500"]
 
 
 def generic_loadout(cls, role: Role) -> dict:
@@ -168,7 +168,7 @@ def generic_loadout(cls, role: Role) -> dict:
         P = getattr(cls, f"Pylon{i}", None)
         if P is None:
             continue
-        names = sorted((a for a in dir(P) if not a.startswith("_") and "smoke" not in a.lower()), key=len)   # never smoke markers
+        names = sorted((a for a in dir(P) if not a.startswith("_") and "smoke" not in a.lower() and "beer" not in a.lower()), key=len)   # never smoke markers (or beer)
         if air:
             order = (_G_HEAVY, _G_SHORT) if i % 2 else (_G_SHORT, _G_HEAVY)
             stems = [s for grp in order for s in grp]
@@ -251,7 +251,7 @@ def enemy_strike_loadout(cls_name: str) -> dict:
     out = {}
     for i in sorted(cls.pylons):
         P = getattr(cls, f"Pylon{i}", None)
-        w = (_find(P, "FAB_500M") or _find(P, "FAB_250M")) if P is not None else None
+        w = next((x for x in (_find(P, k) for k in ("FAB_500M", "FAB_250M", "SC_500_L2", "SC_250_Type_1", "AN_M64", "British_GP_500")) if x), None) if P is not None else None
         if w is not None:
             out[i] = {"CLSID": w[1]["clsid"]}
     return out

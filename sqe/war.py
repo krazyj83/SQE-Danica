@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 import random
 from . import threatmap as tm
-from . import ground, theatres
+from . import factions, ground, theatres
 from . import raids, sams
 from .raids import hit as raids_hit
 from .difficulty import Difficulty
@@ -48,14 +48,14 @@ class ObjectivePlanner:
             if a.kind in (AssetKind.C2, AssetKind.FUEL, AssetKind.DEPOT):
                 pr = a.value * a.health / (1 + 0.5 * len(defenders))
                 cand.append((pr, Objective("", ObjectiveType.STRIKE, a.id, pr, f"Strike {a.name}"), self._blockers(state, a), locked))
-            elif a.kind == AssetKind.SAM and a.value >= 5 and tm.RANGE_NM.get(a.variant, 0) >= 10:      # short-range SAMs are CAS's problem, not a SEAD/DEAD package's
+            elif a.kind == AssetKind.SAM and a.value >= 5 and (tm.RANGE_NM.get(a.variant, 0) >= 10 or a.variant in factions.VariantFlag("long_range")):      # short-range SAMs are CAS's problem, not a SEAD/DEAD package's (heavy flak counts: it is WWII's long-range air defence)
                 covered = sum(x.value for x in state.assets.values() if a.id in x.defended_by and not x.destroyed) / 3.0
                 pr = a.value * a.health + covered
                 if a.health < 0.85:                                    # SEAD blinded it or CAS thinned it, but it still stands: mop up
                     pr *= 1.5
                     desc = f"Finish off {a.name} ({a.health:.0%} left)"
                 else:
-                    desc = f"SEAD and DEAD: {a.name}"
+                    desc = (f"Flak suppression: {a.name}" if factions.blue().get("era") == "ww2" else f"SEAD and DEAD: {a.name}")
                 cand.append((pr, Objective("", ObjectiveType.DEAD, a.id, pr, desc), self._blockers(state, a), locked))
             elif a.kind == AssetKind.ARMOR:
                 pr = a.value * a.health * 1.4
@@ -83,7 +83,6 @@ class ObjectivePlanner:
                 pr *= 1.8                                              # clear the belt first
             pool.append((pr, o))
         fleet = next((b for b in state.bases.values() if b.kind.value == "CARRIER"), None)
-        from . import factions
         bw = next((x for x in state.enemy_air if factions.bomber() and factions.bomber() in x.types and x.available >= 2 and not state.assets[x.base_asset_id].destroyed), None)
         if fleet and bw and self.d is not None and self.d.bomber_policy != "none":
             t = totals(state)

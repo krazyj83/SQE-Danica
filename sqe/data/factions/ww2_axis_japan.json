@@ -165,7 +165,11 @@
     "Type_94_Truck"
    ]
   ],
-  "wreck_aaa": "Type_96_25mm_AA"
+  "wreck_aaa": "Type_96_25mm_AA",
+  "extra_aaa": [
+   "Type_96_25mm_AA",
+   "Type_94_25mm_AA_Truck"
+  ]
  },
  "base_defence": [
   {

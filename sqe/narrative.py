@@ -30,12 +30,37 @@ PHASES = [
 ]
 
 
+PHASES_WW2 = [
+    ("Phase 1 - Stop the Panzers and Win the Sky",
+     "The first priority is to stop the armour driving on the beachhead and to keep the Luftwaffe off our landing grounds. "
+     "Close support for the troops in contact and fighter sweeps over the German fields.",
+     PHASES[0][2]),
+    ("Phase 2 - Silence the Flak",
+     "With the counter-attack checked, the fighter-bombers turn on the flak belts and the Freya and Wurzburg radars that direct them. "
+     "Every battery knocked out makes the next mission cheaper.",
+     PHASES[1][2]),
+    ("Phase 3 - Choke the Supply Lines",
+     "The flak is thinned out. Now hit what the German army runs on: headquarters, fuel dumps, ammunition and the rail yards. "
+     "Catch the Luftwaffe on its fields and finish it in the air.",
+     PHASES[2][2]),
+]
+
+
+def _phases() -> list:
+    try:
+        from . import factions
+        return PHASES_WW2 if factions.blue().get("era") == "ww2" else PHASES
+    except Exception:
+        return PHASES
+
+
 def phase(state) -> tuple:
     t = totals(state)
-    for i, (name, text, done) in enumerate(PHASES, 1):
+    ph = _phases()
+    for i, (name, text, done) in enumerate(ph, 1):
         if not done(t):
             return i, name, text
-    return len(PHASES), PHASES[-1][0], PHASES[-1][1]
+    return len(ph), ph[-1][0], ph[-1][1]
 
 
 def sitrep(state) -> list:

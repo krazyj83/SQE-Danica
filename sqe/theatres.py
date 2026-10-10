@@ -13,7 +13,7 @@ from pathlib import Path
 DATA = Path(__file__).resolve().parent / "data" / "theatres"
 DEFAULT = "caucasus"
 
-REQUIRED = ("id", "name", "dcs_terrain", "lat", "lon", "tz", "temp_c", "geo", "scan", "carrier", "blue_fields", "red_fields",
+REQUIRED = ("id", "name", "dcs_terrain", "lat", "lon", "tz", "temp_c", "geo", "scan", "blue_fields", "red_fields",
             "wing_weight", "field_tier", "squadrons", "front", "tier_labels", "front_names", "front_desc", "title", "background")
 
 _ACTIVE: dict | None = None
@@ -49,6 +49,9 @@ def _validate(d: dict, src) -> dict:
     d.setdefault("support_targets", [])
     d.setdefault("red_keep", {})
     d.setdefault("bomber_base", "")
+    d.setdefault("carrier", None)                       # optional: a theatre without a carrier (Normandy) has land bases only
+    d.setdefault("year", 2004)                          # the year campaigns on this theatre are set in (New Campaign shows it)
+    d.setdefault("default_start", f"{d['year']}-06-12")
     d.setdefault("factions", {"blue": "modern_usa", "red": "modern_russia"})
     d["_dir"] = str(Path(src).parent)
     return d

@@ -162,6 +162,26 @@ def unit_namer(side_name: str = "red"):
     return name
 
 
+def flyable_keys(side_name: str, theatre: dict | None = None) -> list:
+    """Catalog keys of the aircraft a side flies: its theatre squadrons first, then what its faction's air section lists. Empty when the
+    faction lists no aircraft (the modern packs), meaning: anything of the era."""
+    from .aircraft import AIRCRAFT
+    p = side(side_name) if theatre is None else get(for_theatre(theatre)[side_name])
+    out = [q["aircraft"] for q in (theatre or {}).get("squadrons", []) if side_name == "blue"]
+    a = _sec(p, "air", default={}) or {}
+    names = list(a.get("fighters") or []) + sum((list(v) for v in (a.get("types_by_level") or {}).values()), []) + [a.get("striker"), a.get("bomber")]
+    if not names or not any(names):
+        return []
+    for n in names:
+        if not n:
+            continue
+        try:
+            out.append(AIRCRAFT.for_type(n).key)
+        except KeyError:
+            continue
+    return list(dict.fromkeys(out))
+
+
 def striker() -> str:
     return _sec(red(), "air", "striker", default="Su_24M")
 

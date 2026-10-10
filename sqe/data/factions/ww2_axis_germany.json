@@ -333,7 +333,12 @@
     1
    ]
   ],
-  "jtac": "Kubelwagen_82"
+  "jtac": "Kubelwagen_82",
+  "extra_aaa": [
+   "flak38",
+   "flak30",
+   "flak38"
+  ]
  },
  "base_defence": [
   {

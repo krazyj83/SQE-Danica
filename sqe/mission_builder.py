@@ -101,6 +101,24 @@ class _Veh:
 _AD, _UN, _AR = _Veh(vehicles.AirDefence), _Veh(vehicles.Unarmed), _Veh(vehicles.Armor)
 
 
+def _side_country(m, side: str):
+    """The side's main DCS country in this mission. pydcs's default coalitions don't hold every country (no Third Reich), so a missing
+    one is created and added to the right coalition."""
+    from dcs import countries as _C
+    name = factions.country(side)
+    c = m.country(name)
+    if c is not None:
+        return c
+    cls = next((k for k in vars(_C).values() if isinstance(k, type) and getattr(k, "name", None) == name), None)
+    if cls is None:
+        raise ValueError(f"unknown DCS country {name!r} in the {side} faction pack")
+    for coal in m.coalition.values():                      # never in two coalitions at once
+        coal.countries.pop(name, None)
+    c = cls()
+    m.coalition[side].add_country(c)
+    return c
+
+
 def _vt(name):
     for ns in (_AD, _UN, _AR):
         try:
@@ -169,7 +187,7 @@ class MissionBuilder:
         theatres.use(st.theatre)
         m = Mission(theatres.terrain())
         self.m, self.t = m, m.terrain
-        self.usa, self.red = m.country(factions.country("blue")), m.country(factions.country("red"))     # self.usa = the blue side
+        self.usa, self.red = _side_country(m, "blue"), _side_country(m, "red")     # self.usa = the blue side (any faction's main country)
         date = st.campaign_date()
         hh, mm = int(package.start[:2]), int(package.start[3:5])
         start = datetime.datetime(date.year, date.month, date.day, hh, mm)
@@ -221,7 +239,9 @@ class MissionBuilder:
                 self.t.airports[a.airport].set_red()
         for bid in dict.fromkeys([f.base_id for f in package.flights] + [f.base_id for x in list(extras) + list(ruins) for f in x.flights if not f.tag]):
             self._place_base(st.bases[bid], tx, ty)
-        atc = (o.carrier_atc_mhz if pbase.kind == BaseKind.CARRIER else self.t.airports[pbase.airport].atc_radio.uhf_hz / 1e6)
+        ww2 = factions.blue().get("era") == "ww2"
+        _atc = lambda ap_: (ap_.atc_radio.vhf_high_hz if ww2 else ap_.atc_radio.uhf_hz) / 1e6          # WWII radios are VHF only
+        atc = (o.carrier_atc_mhz if pbase.kind == BaseKind.CARRIER else _atc(self.t.airports[pbase.airport]))
 
         # ---- enemy ground: everything the route touches is live from the first second ----------------------------------
         polyline = [(pbase.x, pbase.y), geom.mshl, geom.push, geom.ip, (tx, ty), geom.egr]
@@ -230,8 +250,10 @@ class MissionBuilder:
 
         # ---- radios + support -----------------------------------------------------------------------------------------
         div = self._divert(pbase)
-        div_mhz = self.t.airports[div.airport].atc_radio.uhf_hz / 1e6 if div.airport else None
-        plan = build_radio_plan(package, st, atc, self.rng, o.layout, RadioCfg(o.carrier_tacan, o.carrier_link4_mhz), div_mhz, div.name)
+        div_mhz = _atc(self.t.airports[div.airport]) if div.airport else None
+        from .radio import FrequencyAllocator as _FA
+        plan = build_radio_plan(package, st, atc, self.rng, o.layout, RadioCfg(o.carrier_tacan, o.carrier_link4_mhz), div_mhz, div.name,
+                                band=_FA.VHF_WW2 if ww2 else None)
         tanker_xy, awacs_unit, hav_xy = self._place_support(package, plan, geom)
 
         # ---- timeline: YOUR times. Roles are staggered around the strikers' push (sweep, SEAD, escorts go first) ---------
@@ -323,7 +345,11 @@ class MissionBuilder:
         # ---- codes, fuel, text, hook, kneeboard -----------------------------------------------------------------------------
         mode3 = self._mode3(package, pf)
         laser = self._laser(package, pf)
-        x = {"date": date_str, "mode3": mode3, "laser": laser, "bingo": f"{pspec.bingo_lbs:,}", "joker": f"{pspec.joker_lbs:,}",
+        era = factions.blue().get("era", "modern")
+        if era == "ww2":                                     # no IFF transponders or laser codes in 1944
+            mode3 = laser = "-"
+        x = {"date": date_str, "mode3": mode3, "laser": laser, "bingo": f"{pspec.bingo_lbs:,}", "joker": f"{pspec.joker_lbs:,}", "era": era,
+             "tanker": tanker_xy is not None,
              "bullseye": latlon(bx, by, self.t), "divert": div.name, "weather": weather.describe(self.wx), "weather_short": weather.metar(self.wx), "wx_notes": self.wx_notes,
              "link16": any(r["stn"] != "-" for r in whois), "pkg_table": pkg_table,
              "n_def": air_pkg.n_def, "intel": self._intel, "merged_nums": [m_["number"] for m_ in merged if not m_.get("struck")]}
@@ -352,7 +378,7 @@ class MissionBuilder:
             ctx = {"date": date_str, "callsign": f"{pf.callsign}-1", "role": ("DEAD" if (pf.role == Role.STRIKE and package.objective.type == ObjectiveType.DEAD) else pf.role.value), "objective": package.objective.description,
                    "comm1": plan.comm1, "comm2": plan.comm2, "fc3": pspec.fc3, "waypoints": kn_rows, "jet": pspec.display,
                    "numbering": (f"{pspec.first_wp_label} for the start point, then 1, 2, 3..." if pspec.first_wp_label else "waypoint 1 = start point"),
-                   "bingo": f"{pspec.bingo_lbs:,}", "joker": f"{pspec.joker_lbs:,}", "weather": weather.metar(self.wx), "mode3": mode3, "laser": laser,
+                   "bingo": f"{pspec.bingo_lbs:,}", "joker": f"{pspec.joker_lbs:,}", "weather": weather.metar(self.wx), "mode3": mode3, "laser": laser, "era": era,
                    "bullseye": latlon(bx, by, self.t), "whois": whois, "threats": text["threats"], "n_def": air_pkg.n_def, "target_data": tdata,
                    "others": [{"line": f"#{m_['number']} {m_['type']}: {m_['objective']}", "push": m_["push"], "tot": m_["tot"], "rtb": m_["rtb"], "flights": m_["flights"],
                                "status": ("already struck, heading home; its target is in ruins" if m_.get("struck") else "airborne when you start" if m_.get("underway") else "")} for m_ in merged],
@@ -763,10 +789,12 @@ class MissionBuilder:
             elif a.kind in (AssetKind.C2, AssetKind.FUEL, AssetKind.DEPOT, AssetKind.AIRFIELD):
                 n = max(1, n + r.randint(-1, 2))
             out.append((name, n))
-        if a.kind == AssetKind.SAM and r.random() < 0.45:
-            out.append((r.choice(["ZSU_23_4_Shilka", "SA_18_Igla_manpad", "Ural_375_ZU_23"]), r.randint(1, 2)))
-        if a.kind in (AssetKind.C2, AssetKind.FUEL, AssetKind.DEPOT) and r.random() < 0.5:
-            out.append(("Ural_375", r.randint(1, 3)))
+        g = factions.garrison("red")
+        extra = (factions.side("red").get("ground") or {}).get("extra_aaa") or []
+        if a.kind == AssetKind.SAM and r.random() < 0.45 and extra:          # point defence that turns up beside a site (red faction)
+            out.append((r.choice(extra), r.randint(1, 2)))
+        if a.kind in (AssetKind.C2, AssetKind.FUEL, AssetKind.DEPOT) and r.random() < 0.5 and g.get("truck"):
+            out.append((g["truck"], r.randint(1, 3)))
         return out
 
     def _garrison_comp(self):
@@ -1455,7 +1483,7 @@ class MissionBuilder:
             g.set_skill(skill)
             if self.o.enemy_unlimited_fuel:
                 g.points[0].tasks.append(task.SetUnlimitedFuelCommand(True))
-            if not load:
+            if not load and AIRCRAFT.for_type(tname).era != "ww2":          # a warbird fighting on its guns is not a missing loadout
                 self.warns.append(f"{tname}: no air-to-air loadout found; spawned unarmed")
             manifest.add("enemy_air", w.base_asset_id, names, type=tname)       # type: losses come off that squadron
 
