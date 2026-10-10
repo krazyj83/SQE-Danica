@@ -135,5 +135,13 @@
    ]
   ],
   "jtac": "Hummer"
+ },
+ "air": {
+  "unit_names": {
+   "fighter": "{n} FS",
+   "strike": "{n} FS",
+   "bomber": "{n} BS"
+  },
+  "unit_number_start": 13
  }
 }

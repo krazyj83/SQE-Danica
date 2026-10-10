@@ -146,6 +146,22 @@ def enemy_types(level: int, fallback=None) -> list:
     return list(t) if t else list(fallback or [])
 
 
+def unit_namer(side_name: str = "red"):
+    """A function type -> unit name ("JG 26 (FW_190D9)", "3 IAP (MiG_29S)") that numbers each kind of unit in turn."""
+    p = side(side_name)
+    fmt = _sec(p, "air", "unit_names") or {}
+    start = int(_sec(p, "air", "unit_number_start", default=1) or 1)
+    fighters, strk, bmb = set(_sec(p, "air", "fighters") or []), _sec(p, "air", "striker", default=""), _sec(p, "air", "bomber", default="")
+    count = {}
+
+    def name(t: str) -> str:
+        kind = "bomber" if t == bmb and bmb else "strike" if (t == strk or t not in fighters) else "fighter"
+        count[kind] = count.get(kind, start - 1) + 1
+        pattern = fmt.get(kind) or {"fighter": "{n} Fighter Sqn", "strike": "{n} Strike Sqn", "bomber": "{n} Bomber Sqn"}[kind]
+        return f"{pattern.format(n=count[kind])} ({t.replace('_', '-')})"
+    return name
+
+
 def striker() -> str:
     return _sec(red(), "air", "striker", default="Su_24M")
 

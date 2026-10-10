@@ -1457,7 +1457,7 @@ class MissionBuilder:
                 g.points[0].tasks.append(task.SetUnlimitedFuelCommand(True))
             if not load:
                 self.warns.append(f"{tname}: no air-to-air loadout found; spawned unarmed")
-            manifest.add("enemy_air", w.base_asset_id, names)
+            manifest.add("enemy_air", w.base_asset_id, names, type=tname)       # type: losses come off that squadron
 
     # ---- reactive dispatch: enemy reinforcements and blue alert pairs launched during the sortie ---------------------------------
     def _pick_tier(self, geom, role, profile, tx, ty, skip=()):
@@ -1544,7 +1544,7 @@ class MissionBuilder:
             g.set_skill(skill)
             if o.enemy_unlimited_fuel:
                 g.points[0].tasks.append(task.SetUnlimitedFuelCommand(True))
-            manifest.add("enemy_air", a.id, names)
+            manifest.add("enemy_air", a.id, names, type=pk["type"])
             placed_red += pk["size"]
             if a.id not in seen_src:
                 seen_src.add(a.id)
@@ -1655,8 +1655,8 @@ class MissionBuilder:
             g.set_skill(skill)
             return g
 
+        raider = ex.get("raider") or factions.striker()
         if land:
-            raider = ex.get("raider") or factions.striker()
             g = build_group("Raid Bomber 1", getattr(planes, raider), ex["bombers"], task.RunwayAttack, (sx, sy), bomber=True)
             load = enemy_strike_loadout(raider)
         else:
@@ -1667,7 +1667,7 @@ class MissionBuilder:
             u.name = f"RAID-B-{j}"; u.pylons = copy.deepcopy(load); names.append(u.name)
         if not load:
             self.warns.append(f"{ex.get('raider', 'Tu-22M3')}: no bomb or missile found; the raid is unarmed.")
-        manifest.add("enemy_air", ex["bomber_wing"], names, raid_base=cvb.id, raid_arrive_s=float(arrive + dist(sx_, sy_, cvb.x, cvb.y) / 232.0))
+        manifest.add("enemy_air", ex["bomber_wing"], names, type=raider if land else factions.bomber(), raid_base=cvb.id, raid_arrive_s=float(arrive + dist(sx_, sy_, cvb.x, cvb.y) / 232.0))
         if ex.get("escorts"):
             back = offset(sx, sy, bearing(remaining[0][0], remaining[0][1], sx, sy), 3 * NM)
             eg = build_group("Raid Escort 1", getattr(planes, ex["escort_type"]), ex["escorts"], task.CAP, back)
@@ -1675,4 +1675,4 @@ class MissionBuilder:
             en = []
             for j, u in enumerate(eg.units, 1):
                 u.name = f"RAID-E-{j}"; u.pylons = copy.deepcopy(eload); en.append(u.name)
-            manifest.add("enemy_air", ex["escort_wing"], en)
+            manifest.add("enemy_air", ex["escort_wing"], en, type=ex["escort_type"])

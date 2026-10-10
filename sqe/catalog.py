@@ -224,6 +224,23 @@ class Catalog(Mapping):
     def player_types(self, era: str | None = None) -> dict:
         return {k: v for k, v in self._d.items() if v.player_flyable and (era is None or v.era == era)}
 
+    def for_type(self, name: str):
+        """The spec for any pydcs aircraft, by catalog key, class name (MiG_29A) or DCS id (MiG-29A), including AI-only types such as
+        the Su-24M (generated on first use, never player-flyable). Red squadrons store pydcs class names, so this is how they are looked up."""
+        if name in self:
+            return self[name]
+        t = resolve_type(name)
+        for s in self._d.values():
+            try:
+                if s.dcs_type is t:
+                    return s
+            except KeyError:
+                continue
+        extra = self.__dict__.setdefault("_extra", {})
+        if t.id not in extra:
+            extra[t.id] = replace(spec_from_type(t), player_flyable=False)
+        return extra[t.id]
+
     def with_overrides(self, key: str, **over):
         """A copy of a spec with some fields changed (used by tests and future faction packs)."""
         return replace(self[key], **over)

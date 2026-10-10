@@ -867,7 +867,38 @@ def main():
     print("[ai test] the AI-flown tick builds your flight as AI (no player slot); off = a player slot")
     _catalog_test(s)
     _faction_test(s)
+    _red_squadron_test(s)
     print("SMOKE TEST PASSED")
+
+
+def _red_squadron_test(s):
+    """Red squadrons: a wing is a view over real squadrons; losses land on the squadron of the type that flew; saves keep them; a
+    format-5 save (air-wing counters) is migrated with the same totals."""
+    import json as _json
+    from sqe.state import CampaignState as _CS
+    from sqe.models import AirWing as _AW
+    from sqe.debrief import apply_debrief as _ad, Manifest as _MF
+    s.new("Red sq", "F-16C", 2, seed=11)
+    st = s.state
+    assert st.red_squadrons and all(q.side == "red" for q in st.red_squadrons.values())
+    w = next(w for w in st.enemy_air if len(w.units) >= 2)
+    assert w.available == sum(q.available for q in w.units) and w is st.enemy_air_at(w.base_asset_id), "stable wing view over the squadrons"
+    t0 = w.types[1]; q0 = w.of_type(t0); before = q0.available; others = w.available - before
+    man = _MF(st.campaign_id, st.sortie_counter, "pkg-x", st.day); man.add("enemy_air", w.base_asset_id, ["E1", "E2"], type=t0)
+    _ad(st, man, {"dead": ["E1", "E2"], "ejected": [], "landed": [], "player": {}, "kills": [], "mission_ended": True, "time": 600})
+    assert q0.available == before - 2 and w.available == others + before - 2, "losses come off the squadron that flew"
+    w.available = w.available - 3; assert w.available == others + before - 5, "a wing-level loss is spread over its squadrons"
+    w.available = w.authorized; assert all(q.available == q.authorized for q in w.units), "replacements fill the squadrons back up"
+    s.save(); back = _CS.load(s.path)
+    assert {k: (q.aircraft, q.available) for k, q in back.red_squadrons.items()} == {k: (q.aircraft, q.available) for k, q in st.red_squadrons.items()}
+    old = st.to_dict(); old["format"] = 5
+    old["enemy_air"] = [{"base_asset_id": w_.base_asset_id, "types": w_.types, "authorized": w_.authorized, "available": max(0, w_.available - 1),
+                         "squadrons": 1} for w_ in st.enemy_air]
+    old.pop("red_squadrons")
+    mig = _CS.from_dict(_json.loads(_json.dumps(old)))
+    assert [(w_.base_asset_id, w_.types, w_.authorized, w_.available) for w_ in mig.enemy_air] == \
+           [(x["base_asset_id"], x["types"], x["authorized"], x["available"]) for x in old["enemy_air"]], "a format-5 save keeps every wing's totals"
+    print(f"[red squadrons] {len(st.red_squadrons)} squadrons at {len(st.enemy_air)} fields; losses by type, wing views, save round trip, format-5 migration")
 
 
 def _faction_test(s):

@@ -58,7 +58,13 @@
    ]
   },
   "striker": "Su_24M",
-  "bomber": "Tu_22M3"
+  "bomber": "Tu_22M3",
+  "unit_names": {
+   "fighter": "{n} IAP",
+   "strike": "{n} BAP",
+   "bomber": "{n} TBAP"
+  },
+  "unit_number_start": 31
  },
  "air_defence": {
   "variants": {
