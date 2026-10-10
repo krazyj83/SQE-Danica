@@ -4,7 +4,7 @@ SHORT = "SQE"
 __version__ = "0.26.5"
 CAMPAIGN_EXT = ".sqe"
 FORMAT_VERSION = 6               # 6: red squadrons (state.red_squadrons) instead of air-wing counters; older saves are migrated on load
-AUTHOR = "MarkuzJuniuz"        # named on generated missions (DCS EULA 4.1)
+AUTHOR = "SEN"                 # named on generated missions (DCS EULA 4.1). The MIT copyright in LICENSE stays with the original author.
 EULA_LINE = "THIS MATERIAL IS NOT MADE OR SUPPORTED BY EAGLE DYNAMICS SA."
 
 

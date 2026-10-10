@@ -5,6 +5,7 @@
 * Engine changes any theatre can use: the carrier is optional, a theatre has a `year` and `default_start`, faction countries missing from pydcs's default coalitions (Third Reich) are added, and squadron callsigns are checked against DCS's own list. A bad callsign now gives a clear error instead of a crash; this also fixes a latent crash when raising a new squadron.
 * Generic loadouts know British and German bombs (Spitfire 250/500 lb, SC 250/500). German fighters fly on their guns without a warning.
 * Modern campaigns are unchanged (mission fingerprint byte-identical).
+* Missions now say "Created by SEN" in the briefing credit line.
 
 ## Danica 0.3 - red squadrons
 * Red's air force is real squadrons now, the same record Blue uses: one squadron per type at each red airfield, named the way its faction does it (31 IAP, 32 BAP for Russia; JG 1 and KG 1 for Germany; 352 FG for the Allies). Hover a row on the Forces page to see a field's squadrons.

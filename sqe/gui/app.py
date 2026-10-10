@@ -545,7 +545,7 @@ def run():
     app.setStyleSheet(theme.QSS); app.setApplicationName(APP_NAME)
     try:                                                       # own taskbar identity + icon (otherwise Windows groups SQE under python.exe)
         import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("MarkuzJuniuz.SQE")
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("SEN.SQEDanica")
     except Exception:
         pass
     try:
