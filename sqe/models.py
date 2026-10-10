@@ -11,6 +11,7 @@ class Role(str, Enum):
     ESCORT = "ESCORT"
     SEAD = "SEAD"
     STRIKE = "STRIKE"
+    TRANSPORT = "TRANSPORT"     # cargo flights (logistics.py)
 
 
 class BaseKind(str, Enum):
@@ -41,6 +42,7 @@ class ObjectiveType(str, Enum):
     FLEET_DEFENSE = "FLEET_DEFENSE"  # intercept an enemy bomber raid on the fleet
     COUNTER_AIR = "COUNTER_AIR"  # sweep / hit an enemy airfield's air wing
     BARCAP = "BARCAP"          # defend a friendly base / the fleet
+    CARGO = "CARGO"            # fly supplies to a friendly base (target_id = that base; logistics.py)
 
 
 @dataclass

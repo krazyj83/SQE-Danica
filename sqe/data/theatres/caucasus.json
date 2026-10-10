@@ -235,6 +235,22 @@
    "base": "batumi",
    "count": 18,
    "callsign": "Boar"
+  },
+  {
+   "id": "vmgr_252",
+   "name": "VMGR-252 'Otis'",
+   "aircraft": "C-130J-30",
+   "base": "batumi",
+   "count": 6,
+   "callsign": "Colt"
+  },
+  {
+   "id": "b_co_1_214",
+   "name": "B Co, 1-214th Aviation",
+   "aircraft": "CH-47Fbl1",
+   "base": "kobuleti",
+   "count": 8,
+   "callsign": "Chevy"
   }
  ],
  "support_targets": [

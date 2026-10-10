@@ -103,6 +103,12 @@ _INTENT = {
         "Intel shows {site} loaded and fuelled. Hit it before it launches.",
         "Take {site} out of the fight. What cannot launch cannot kill us.",
     ],
+    ObjectiveType.CARGO: [
+        "{site} is running short. Get the supplies in and the aircraft back out.",
+        "Every tonne you land at {site} is another sortie tomorrow. Do not lose the load.",
+        "Fly it like it matters, because it does: {site} lives on what you bring.",
+        "Keep low, keep moving, land it at {site}. The fighters will cover you where they can.",
+    ],
     ObjectiveType.BARCAP: [
         "The fleet is the center of gravity. Nothing gets through to the carrier.",
         "Hold the line over the task force and kill anything that approaches.",

@@ -111,6 +111,8 @@ class Session:
         warned, n_surprise = raids.todays_raids(st, self.d, self._rng(71))
         carry = self._carried(objs)
         objs = carry + objs + warned                    # postponed from yesterday first, then the day's job list, then the announced raids
+        from . import logistics
+        cargo_objs = logistics.cargo_objectives(st)     # cargo runs to the neediest bases: planned after the combat packages (below)
         st.raids = {**keep, "day": st.day, "surprise": n_surprise, "carry": []}
         pb = PackageBuilder(st, self.d)
         psq = st.player.squadron_id if st.player else None
@@ -137,6 +139,7 @@ class Session:
                 for f in pkg.flights:
                     daily[f.squadron_id] -= f.count
                 out.append(pkg)
+            build_all.daily = daily
             return out
 
         mine = lambda pk: sum(1 for p in pk if any(f.squadron_id == psq and not f.tag for f in p.flights))
@@ -170,9 +173,39 @@ class Session:
             p.number, p.id = n, f"pkg{n}"
             for k, f in enumerate(p.flights, 1):
                 f.id = f"{p.id}-f{k}"
+        pkgs += self._plan_cargo(cargo_objs, pb, build_all.daily, len(pkgs))
         st.plan = [p.to_dict() for p in pkgs]
         self.refresh_weather()
         return self.packages()
+
+    def _plan_cargo(self, objs: list, pb, daily: dict, n0: int) -> list:
+        """Cargo runs, after the combat packages so they never take a combat package's aircraft or change its dice. Numbered after them,
+        launched through the day. Your squadron flies one if it has transports (or fighters free to escort)."""
+        st, out = self.state, []
+        for o in objs:
+            ledger = Ledger(st)
+            for sid in ledger.free:
+                ledger.free[sid] = min(ledger.free[sid], daily.get(sid, 0))
+            pkg = None
+            for fp in (True, False):
+                try:
+                    pkg = pb.build(o, n0 + len(out) + 1, ledger, for_player=fp)
+                    break
+                except NoPlayerSlot:
+                    continue
+            if pkg is None:
+                continue
+            for f in pkg.flights:
+                daily[f.squadron_id] -= f.count
+            out.append(pkg)
+        from .timeofday import wave_times
+        times = wave_times(len(out), st.campaign_date(), st.night_ops, self._rng(6)) if out else []
+        for k, (p, t) in enumerate(zip(out, times)):
+            p.start = t
+            p.number, p.id = n0 + k + 1, f"pkg{n0 + k + 1}"
+            for j, f in enumerate(p.flights, 1):
+                f.id = f"{p.id}-f{j}"
+        return out
 
     def packages(self) -> list:
         """The tasking order. Emergency packages (flown, folded in or settled by odds) are in the plan but are not listed."""

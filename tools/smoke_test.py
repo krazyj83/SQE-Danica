@@ -37,7 +37,7 @@ def main():
         if not spec.player_flyable:
             continue
         s.new(f"Smoke {aircraft}", aircraft, 3, seed=7)         # level 3 so the bomber raid objective exists too
-        opts = [p for p in s.packages() if s.flyable(p)]
+        opts = [p for p in s.packages() if s.flyable(p) and p.objective.type.value != "CARGO"]      # cargo runs have their own test
         if not opts:
             print(f"[{aircraft}] no flyable package today (fine for niche jets like the A-10)"); continue
         # prefer something we have not tested yet (CAS, raid, ...) so every mission type gets built
@@ -251,7 +251,7 @@ def main():
     ds.new("Smoke dead", "F-16C", 3, seed=11)
     st = ds.state
     assert any(a.variant == "GARRISON" for a in st.assets.values()), "no SAM garrisons at level 3"
-    assert all(a.tier <= st.front + 2 for p in ds.packages() if p.objective.type.value not in ("BARCAP", "FLEET_DEFENSE")
+    assert all(a.tier <= st.front + 2 for p in ds.packages() if p.objective.type.value not in ("BARCAP", "FLEET_DEFENSE", "CARGO")
                for a in [st.assets[p.objective.target_id]]), "a locked-tier target was offered on day 1"
     dp = next(p for p in ds.packages() if p.objective.type == ObjectiveType.DEAD and ds.flyable(p))
     roles = {f.role for f in dp.flights if not f.tag}
@@ -445,7 +445,7 @@ def main():
                 a_.health = 0.0 if a_.id.endswith(("_0", "_1")) else a_.health
         for k_, v_ in kw.items():
             setattr(ws_.settings, k_, v_)
-        p_ = next(p0 for p0 in ws_.packages() if ws_.flyable(p0) and p0.objective.type.value not in ("BARCAP", "FLEET_DEFENSE") and ws_.state.assets[p0.objective.target_id].health > 0)
+        p_ = next(p0 for p0 in ws_.packages() if ws_.flyable(p0) and p0.objective.type.value not in ("BARCAP", "FLEET_DEFENSE", "CARGO") and ws_.state.assets[p0.objective.target_id].health > 0)
         r_ = ws_.fly(p_.number, ws_.flyable(p_)[0].id)
         with zipfile.ZipFile(ws_.settings.sortie_miz) as z_:
             mis = z_.read("mission").decode("utf-8", "replace")
@@ -870,7 +870,51 @@ def main():
     _red_squadron_test(s)
     _normandy_test(s)
     _logistics_test(s)
+    _cargo_test(s)
     print("SMOKE TEST PASSED")
+
+
+def _cargo_test(s):
+    """Cargo: transports fly supplies to the neediest base (you in the C-130J or the CH-47), the hook's landing place decides what was
+    delivered, AI cargo runs deliver too, and red road convoys are targets whose damage cuts what arrives."""
+    import zipfile as _zf
+    from dcs import lua as _lua
+    from sqe import logistics as L
+    for ac, sqid, cat in (("C-130J-30", "vmgr_252", "plane"), ("CH-47Fbl1", "b_co_1_214", "helicopter")):
+        s.new(f"Cargo {ac}", ac, 2, seed=4, squadron=sqid)
+        st = s.state
+        cp = [p for p in s.packages() if p.objective.type.value == "CARGO"]
+        assert cp and all(not p.support for p in cp), "cargo runs in the tasking order, no AWACS or tanker"
+        p = next(p for p in cp if s.flyable(p))
+        assert st.squadrons[sqid].base_id != p.objective.target_id, "never a cargo run to your own field"
+        s.fly(p.number, None)
+        m = _lua.loads(_zf.ZipFile(st.pending["miz"]).read("mission").decode())["mission"]
+        tr = [g for coal in m["coalition"].values() for c in coal["country"].values() for g in (c.get(cat) or {}).get("group", {}).values()
+              if list(g["units"].values())[0]["type"] == ac]
+        assert tr and list(tr[0]["route"]["points"].values())[-1]["action"] == "Landing", "the transports land at the destination"
+        man = s.manifest(); cg = next(g for g in man.groups if g["kind"] == "cargo")
+        before = sum(st.logistics["bases"][cg["ref"]][c] for c in L.COMMODITIES)
+        out = s.apply({"campaign": man.campaign_id, "sortie": man.sortie, "package": man.package_id, "mission_ended": True, "time": 3000,
+                       "dead": [cg["units"][1]], "ejected": [], "landed": cg["units"][:1], "player": {"takeoff": 60, "landed": 2900, "ka": 0, "kg": 0, "ks": 0},
+                       "kills": [], "landed_at": {cg["units"][0]: {"place": cg["airport"], "x": 0, "z": 0}}})
+        assert 0 < out.get("cargo_t", 0) <= L.cargo_t(ac) + 0.1, f"one of two transports landed: {out.get('cargo_t')}"
+    st = s.state
+    s.skip_day()
+    assert any("Deliver supplies" in ln and "landed" in ln for ln in st.log[-80:]), "AI cargo runs deliver"
+    cv = [a for k, a in st.assets.items() if k.startswith(L.CONVOY_PREFIX)]
+    assert 0 < len(cv) <= L.MAX_CONVOYS and all(a.variant == "CONVOY" for a in cv), "red road convoys on the map"
+    hit, gone = cv[0], (cv[1] if len(cv) > 1 else None)
+    pend = st.logistics["convoys"]
+    dest = pend[hit.id]["to"]; load = pend[hit.id]["cargo"]["fuel"]
+    hit.health = 0.5
+    if gone is not None:
+        gone.health = 0.0
+    f0 = st.logistics["bases"][dest]["fuel"]
+    from sqe.war import WarSimulator as _WS
+    L.arrive_convoys(st)
+    assert hit.id not in st.assets and abs(st.logistics["bases"][dest]["fuel"] - min(st.logistics["bases"][dest]["cap"]["fuel"], f0 + load * 0.5)) < 0.6, \
+        "a convoy at 50% delivers half its load"
+    print(f"[cargo] C-130J and CH-47 runs flown and counted by landing place; AI cargo delivers; {len(cv)} red convoys, hit ones deliver less")
 
 
 def _logistics_test(s):
@@ -1015,7 +1059,9 @@ def _catalog_test(s):
     assert a4.source == "mod" and a4.player_flyable and a4.carrier_capable and a4.era == "early_jet", "A-4E-C comes from its unit pack"
     assert a4.dcs_type.id == "A-4E-C" and "A-4E-C" in _pl.plane_map, "the A-4E-C is a real pydcs type at runtime"
     assert AIRCRAFT["P-51D"].era == "ww2" and AIRCRAFT["P-51D"].refuel == _RM.NONE, "warbirds are WWII and never refuel"
-    assert not AIRCRAFT["CH-47Fbl1"].player_flyable, "helicopters wait for their own profiles"
+    from sqe.models import Role as _Ro
+    assert AIRCRAFT["CH-47Fbl1"].player_flyable and AIRCRAFT["CH-47Fbl1"].roles == {_Ro.TRANSPORT}, "transport helicopters fly cargo runs"
+    assert not AIRCRAFT["AH-64D_BLK_II"].player_flyable, "attack helicopters wait for their own profiles"
     built = []
     for key in ("A-4E-C", "P-51D", "MiG-21Bis"):
         opts = [sid for sid, _ in _sc.squadron_options(key, "caucasus") if sid.startswith(_sc.NEW_SQUADRON)]

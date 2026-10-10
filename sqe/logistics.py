@@ -217,12 +217,24 @@ def sortie_cap(state, sq) -> int:
         return 10 ** 6
     mates = [q for q in state.squadrons.values() if q.base_id == sq.base_id] if sq.side == "blue" else \
             [q for q in state.red_squadrons.values() if q.base_id == sq.base_id]
+    tr = _is_transport_sq(sq)                          # transports fly occasional cargo runs: they share among themselves, not with the combat squadrons
+    mates = [q for q in mates if _is_transport_sq(q) == tr]
     per_ammo = (AMMO_A2A + AMMO_A2G) / 2
     need_fuel = sum(q.available * _fuel_t(q.aircraft) for q in mates) or 1.0
     need_ammo = sum(q.available for q in mates) * per_ammo or 1.0
     by_fuel = b["fuel"] * sq.available / need_fuel                       # sorties per airframe the fuel allows, times this squadron's airframes
     by_ammo = b["ammo"] * sq.available / need_ammo
     return max(0, int(min(by_fuel, by_ammo)))
+
+
+def _is_transport_sq(q) -> bool:
+    from .aircraft import AIRCRAFT
+    from .models import Role
+    try:
+        spec = AIRCRAFT[q.aircraft] if q.aircraft in AIRCRAFT else AIRCRAFT.for_type(q.aircraft)
+        return Role.TRANSPORT in spec.roles
+    except Exception:
+        return False
 
 
 def supply_factor(state, side: str) -> float:
@@ -355,12 +367,22 @@ def deliver_day(state, rng=None) -> list:
                 b[c] = round(min(b["cap"][c], b[c] + arrive), 1)
                 got[c] = round(arrive, 1)
             lost = round(sum(want.values()) * loss, 1)
-            ships.append({"side": side, "from": src["name"], "to": b["name"], "to_id": bid, "mode": _mode(state, side, src, dxy), **got, "lost": lost})
+            mode = _mode(state, side, src, dxy)
+            ships.append({"side": side, "from": src["name"], "to": b["name"], "to_id": bid, "mode": mode, **got, "lost": lost})
         if side == "blue":
             low = [b["name"] for bid, b in dest.items() if status(state, bid) == "CRITICAL"]
             if low:
                 lines.append(f"supplies critical at {', '.join(low)}")
+    road = sorted((x for x in ships if x["side"] == "red" and x["mode"] == "convoy"), key=lambda x: -(x["fuel"] + x["ammo"] + x["spares"]))
+    for x in road[MAX_CONVOYS:]:
+        x["mode"] = "road"                                 # small loads by back roads: delivered tonight, not a target
+    for x in road[:MAX_CONVOYS]:                           # the big convoys arrive tomorrow night: take them back off the stock for now
+        b = led["bases"][x["to_id"]]
+        for c in COMMODITIES:
+            b[c] = round(b[c] - x[c], 1)
     led["shipments"] = ships
+    lines += arrive_convoys(state)                         # last night's convoys arrive with what is left of them
+    launch_convoys(state, ships)                           # tonight's go on the road, as targets for tomorrow
     lost_blue = sum(s["lost"] for s in ships if s["side"] == "blue")
     if lost_blue >= 5:
         lines.append(f"{lost_blue:.0f} t of our supplies were lost on the way to the front")
@@ -422,3 +444,143 @@ def summary(state) -> list:
             txt += f", {len(crit)} critical ({', '.join(crit[:3])})"
         out.append(txt + ".")
     return out
+
+
+# ---- cargo runs (flown by you or by the AI) ------------------------------------------------------------------------------------------
+CARGO_MIX = {"fuel": 0.5, "ammo": 0.35, "spares": 0.15}             # what a cargo load is made of
+CARGO_THRESHOLD = 0.97                 # a base below this share of its stock (scarcest commodity) can be sent a cargo run
+MAX_CARGO_TASKS = 2                    # cargo runs in the daily tasking order
+
+
+def cargo_t(aircraft: str) -> float:
+    from .catalog import CARGO_T
+    from .aircraft import AIRCRAFT
+    try:
+        t = AIRCRAFT.for_type(aircraft).dcs_type.id if aircraft not in CARGO_T else aircraft
+    except Exception:
+        t = aircraft
+    return CARGO_T.get(t, CARGO_T.get(aircraft, 2.0))
+
+
+def cargo_load(flights: list) -> dict:
+    """[(aircraft, count)] -> {"per_aircraft": {aircraft: t}, "total": t, "mix": CARGO_MIX}."""
+    per = {a: cargo_t(a) for a, _n in flights}
+    return {"per_aircraft": per, "total": round(sum(per[a] * n for a, n in flights), 1), "mix": dict(CARGO_MIX)}
+
+
+def split(tonnes: float) -> dict:
+    return {c: round(tonnes * f, 1) for c, f in CARGO_MIX.items()}
+
+
+def cargo_objectives(state) -> list:
+    """Cargo runs for today's tasking order: the neediest of our airfields, if anyone has transports to send."""
+    from .models import Objective, ObjectiveType, Role
+    from .aircraft import AIRCRAFT
+    if not active(state):
+        return []
+    have = [q for q in state.squadrons.values() if Role.TRANSPORT in AIRCRAFT[q.aircraft].roles and q.available >= 2]
+    if not have:
+        return []
+    fallen = (getattr(state, "ground", None) or {}).get("fallen", [])
+    cands = []
+    for b in state.bases.values():
+        if b.kind.value != "AIRFIELD" or b.id in fallen:
+            continue
+        worst = min(frac(state, b.id, c) for c in COMMODITIES)
+        if worst < CARGO_THRESHOLD and any(q.base_id != b.id for q in have):
+            cands.append((worst, b))
+    cands.sort(key=lambda t: (t[0], t[1].id))
+    return [Objective("", ObjectiveType.CARGO, b.id, round(5.0 + 5.0 * (1.0 - w), 2), f"Deliver supplies to {b.name}")
+            for w, b in cands[:MAX_CARGO_TASKS]]
+
+
+def deliver_cargo(state, base_id: str, tonnes: float) -> dict:
+    """Land `tonnes` of cargo at a base (split fuel / ammunition / spares). Returns what went into stock."""
+    return add_cargo(state, base_id, split(tonnes))
+
+
+def resolve_cargo(state, pkg, rng, d=None) -> dict:
+    """An AI cargo run: each transport gets through unless the route bites (the same losses a shipment suffers, escorts halve them)."""
+    from .models import Role
+    obj = pkg.objective
+    dest = state.bases.get(obj.target_id)
+    tr = [f for f in pkg.flights if f.role == Role.TRANSPORT]
+    if dest is None or not tr:
+        return {"success": False, "odds": 0.0, "lines": [f"{obj.description}: no transports"], "objective": obj.description, "roll": {"success": False}}
+    src = state.bases[tr[0].base_id]
+    loss = _route_loss(state, "blue", (src.x, src.y), (dest.x, dest.y))
+    if any(f.role == Role.ESCORT for f in pkg.flights):
+        loss *= 0.5
+    landed, lost_ac = 0.0, 0
+    for f in tr:
+        for _ in range(f.count):
+            if rng.random() < loss * 0.5:              # shot down with its load
+                lost_ac += 1
+                continue
+            landed += cargo_t(f.aircraft)
+        sq = state.squadrons.get(f.squadron_id)
+        if sq is not None and lost_ac:
+            sq.available = max(0, sq.available - lost_ac)
+    took = deliver_cargo(state, dest.id, landed)
+    got = sum(took.values())
+    lines = [f"{obj.description}: {got:.0f} t landed" + (f", {lost_ac} transport(s) lost" if lost_ac else "")]
+    for ln in lines:
+        state.note(ln)
+    return {"success": got > 0, "odds": 1.0 - loss, "lines": lines, "objective": obj.description, "roll": {"success": got > 0}, "cargo_t": got}
+
+
+# ---- red convoys: road shipments you can catch ---------------------------------------------------------------------------------
+CONVOY_PREFIX = "convoy_"
+MAX_CONVOYS = 3                        # the biggest red road shipments each night travel as convoys you can catch; the rest arrive by back roads
+
+
+def _place_convoy(state, src: dict, dest_xy) -> tuple:
+    """A spot on the road: 60% of the way from the source to the field, on land."""
+    x = src["x"] + (dest_xy[0] - src["x"]) * 0.6
+    y = src["y"] + (dest_xy[1] - src["y"]) * 0.6
+    try:
+        from . import seacheck
+        x, y = seacheck.snap_to_land(x, y)
+    except Exception:
+        pass
+    return x, y
+
+
+def launch_convoys(state, shipments: list) -> None:
+    """Red's road shipments travel overnight and arrive the NEXT night: until then each is a target on the road (a DEPOT-kind asset named
+    'Supply convoy to <field>'). What it delivers is scaled by what is left of it."""
+    from .models import EnemyAsset, AssetKind
+    led = state.logistics
+    pend = led.setdefault("convoys", {})
+    sams = [a for a in state.assets.values() if a.kind == AssetKind.SAM and not a.destroyed]
+    for k, sh in enumerate(shipments):
+        if sh["side"] != "red" or sh["mode"] != "convoy":
+            continue
+        src = next((s for s in led["sources"] if s["name"] == sh["from"]), None)
+        dxy = _xy(state, "red", sh["to_id"])
+        if src is None:
+            continue
+        x, y = _place_convoy(state, src, dxy)
+        aid = f"{CONVOY_PREFIX}{state.day}_{k}"
+        cargo = {c: sh[c] for c in COMMODITIES}
+        state.assets[aid] = EnemyAsset(aid, f"Supply convoy to {sh['to']}", AssetKind.DEPOT, x, y, 1.0, 5,
+                                       [s.id for s in sams if math.hypot(s.x - x, s.y - y) < 40_000], None, "CONVOY", 1)
+        pend[aid] = {"to": sh["to_id"], "to_name": sh["to"], "cargo": cargo, "day": state.day}
+
+
+def arrive_convoys(state) -> list:
+    """Convoys launched last night reach their fields now, carrying what is left of them; then they leave the map."""
+    led = state.logistics
+    pend = led.get("convoys", {})
+    lines = []
+    for aid, c in list(pend.items()):
+        a = state.assets.pop(aid, None)
+        h = a.health if a is not None else 0.0
+        b = led["bases"].get(c["to"])
+        if b is not None and h > 0.05:
+            for k in COMMODITIES:
+                b[k] = round(min(b["cap"][k], b[k] + c["cargo"][k] * h), 1)
+        if h < 0.95:
+            lines.append(f"the supply convoy to {c['to_name']} arrived at {h:.0%}" if h > 0.05 else f"the supply convoy to {c['to_name']} was destroyed on the road")
+        del pend[aid]
+    return lines

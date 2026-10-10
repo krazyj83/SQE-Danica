@@ -15,7 +15,7 @@ from .state import CampaignState
 NM = 1852.0
 MAX_FLIGHT = 4
 CARRIER_PLAYER_FLIGHT_MAX = 2        # catapult spots are limited; keep the player's cat-start flight small
-PLAYER_ROLE_PREFERENCE = {Role.STRIKE: 5, Role.SEAD: 4, Role.ESCORT: 3, Role.SWEEP: 2, Role.CAP: 1, Role.CAS: 0}
+PLAYER_ROLE_PREFERENCE = {Role.STRIKE: 5, Role.SEAD: 4, Role.ESCORT: 3, Role.SWEEP: 2, Role.CAP: 1, Role.CAS: 0, Role.TRANSPORT: 6}
 JTAC_OBJECTIVES = {ObjectiveType.CAS}
 
 
@@ -40,10 +40,13 @@ TEMPLATES = {
     ObjectiveType.BARCAP: [Slot(Role.CAP, 2), Slot(Role.CAP, 2, False)],
     ObjectiveType.CAS: [Slot(Role.CAS, 4), Slot(Role.ESCORT, 2, False), Slot(Role.SEAD, 2, False, True)],
     ObjectiveType.FLEET_DEFENSE: [Slot(Role.CAP, 4), Slot(Role.CAP, 2, False), Slot(Role.SWEEP, 2, False)],
+    # a cargo run: transports from their own field to the base that needs supplies, fighter escort only when the route is threatened
+    ObjectiveType.CARGO: [Slot(Role.TRANSPORT, 2), Slot(Role.ESCORT, 2, False, True)],
 }
 _FLEET = (ObjectiveType.BARCAP, ObjectiveType.FLEET_DEFENSE)
+_BASE_TARGET = (ObjectiveType.BARCAP, ObjectiveType.FLEET_DEFENSE, ObjectiveType.CARGO)     # target_id is one of our bases, not an asset
 _TASK = {Role.STRIKE: "Strike target", Role.SEAD: "Suppress/destroy SAM", Role.ESCORT: "Escort package",
-         Role.SWEEP: "Fighter sweep", Role.CAP: "Combat air patrol", Role.CAS: "Close air support"}
+         Role.SWEEP: "Fighter sweep", Role.CAP: "Combat air patrol", Role.CAS: "Close air support", Role.TRANSPORT: "Deliver supplies"}
 _DEAD_TASK = {Role.SEAD: "SEAD: blind the radars ahead of the DEAD flight", Role.STRIKE: "DEAD: destroy the SAM site (follow the SEAD flight in)"}
 _TAG_TASK = {"HAVCAP": "HAVCAP (guards tanker and AWACS)", "BASECAP": "Base CAP"}
 
@@ -127,7 +130,7 @@ class PackageBuilder:
         self._tk, self._ctx = {}, (None, None)
 
     def target_xy(self, obj: Objective):
-        if obj.type in _FLEET:
+        if obj.type in _BASE_TARGET:
             b = self.state.bases[obj.target_id]
             return b.x, b.y
         a = self.state.assets[obj.target_id]
@@ -153,12 +156,12 @@ class PackageBuilder:
         if math.hypot(tx - b.x, ty - b.y) / NM > reach:
             return False
         obj, asset = self._ctx
-        if obj is not None and obj.type not in _FLEET and tm.blockers(self.state, (b.x, b.y), (tx, ty), asset):
+        if obj is not None and obj.type not in _BASE_TARGET and tm.blockers(self.state, (b.x, b.y), (tx, ty), asset):
             return False
         return True
 
     def _defended(self, obj) -> bool:
-        if obj.type in _FLEET:
+        if obj.type in _BASE_TARGET:
             return False
         a = self.state.assets[obj.target_id]
         return any(not self.state.assets[d].destroyed for d in a.defended_by)
@@ -173,25 +176,27 @@ class PackageBuilder:
                 slots.append(Slot(Role.ESCORT, min(4, req), True))
                 if req > 4:
                     slots.append(Slot(Role.SWEEP, min(4, req - 4), False))
-        if obj.type not in _FLEET:
+        if obj.type not in _BASE_TARGET:
             slots.append(Slot(Role.CAP, 2, False, tag="HAVCAP"))
         return slots
 
     def build(self, obj: Objective, number: int, ledger: Ledger, *, for_player: bool) -> Package:
         st = self.state
         tx, ty = self.target_xy(obj)
-        self._ctx = (obj, None if obj.type in _FLEET else self.state.assets[obj.target_id])
+        self._ctx = (obj, None if obj.type in _BASE_TARGET else self.state.assets[obj.target_id])
         iads = self.d.iads if self.d else 0.5
         extra = {}
         if obj.type == ObjectiveType.FLEET_DEFENSE:
             extra = self._raid_plan(number, obj) or {}
             n_fl = extra.get("escorts", 0) // 2
+        elif obj.type == ObjectiveType.CARGO:        # transports meet fighters only if the destination is within the enemy's reach
+            n_fl = threat.defender_flights(threat.expected_defenders(st, tx, ty, iads) * 0.5)
         elif obj.type == ObjectiveType.BARCAP:       # a fleet patrol meets a probing enemy flight if the enemy still has fighters
             n_fl = 1 if any(w.available > 0 for w in st.enemy_air) else 0
         else:
             n_fl = threat.defender_flights(threat.expected_defenders(st, tx, ty, iads))
         pkg = Package(id=f"pkg{number}", number=number, objective=obj, n_def=2 * n_fl, extra=extra)
-        slots = self._slots(obj, self._defended(obj), n_fl)
+        slots = self._slots(obj, (n_fl > 0) if obj.type == ObjectiveType.CARGO else self._defended(obj), n_fl)
         pp = st.player
 
         player_idx, lead_service, psq = None, None, None
@@ -199,7 +204,8 @@ class PackageBuilder:
             psq = st.squadrons[pp.squadron_id]
             spec = AIRCRAFT[psq.aircraft]
             ok = [i for i, s in enumerate(slots) if not s.tag and s.role in spec.roles
-                  and self._in_range(psq.id, tx, ty) and ledger.free[psq.id] >= 2]
+                  and self._in_range(psq.id, tx, ty) and ledger.free[psq.id] >= 2
+                  and not (s.role == Role.TRANSPORT and psq.base_id == obj.target_id)]      # no cargo run to your own field
             if not ok:
                 raise NoPlayerSlot(f"{psq.name} cannot fly any role in: {obj.description}")
             player_idx = max(ok, key=lambda i: PLAYER_ROLE_PREFERENCE[slots[i].role])
@@ -228,8 +234,8 @@ class PackageBuilder:
         prim = st.bases[chosen[0][1].base_id]
         anchor = next((st.bases[sq.base_id] for _, sq, _, pl in chosen if pl), prim)
         dnm = math.hypot(tx - prim.x, ty - prim.y) / NM
-        wanted = [("HAVCAP", anchor)] if obj.type not in _FLEET else []
-        if obj.type == ObjectiveType.CAS or (obj.type not in _FLEET and dnm < 100):
+        wanted = [("HAVCAP", anchor)] if obj.type not in _BASE_TARGET else []
+        if obj.type == ObjectiveType.CAS or (obj.type not in _BASE_TARGET and dnm < 100):
             wanted.append(("BASECAP", prim))
         for tag, base in wanted:
             sq = self._pick_cap_near(base, ledger, lead_service) or (self._pick_cap_any(ledger, lead_service) if tag == "HAVCAP" else None)
@@ -244,7 +250,10 @@ class PackageBuilder:
             pkg.flights.append(FlightPlan(f"{pkg.id}-f{n}", f"{sq.callsign} {used[sq.callsign]}", slot.role, sq.id,
                                           sq.aircraft, count, sq.base_id,
                                           _TAG_TASK.get(slot.tag) or (_DEAD_TASK.get(slot.role) if obj.type == ObjectiveType.DEAD else None) or _TASK[slot.role], is_pl, slot.tag))
-        pkg.support = self._support(pkg)
+        pkg.support = [] if obj.type == ObjectiveType.CARGO else self._support(pkg)        # a cargo run needs no AWACS or tanker
+        if obj.type == ObjectiveType.CARGO:
+            from . import logistics
+            pkg.extra = {**pkg.extra, "cargo": logistics.cargo_load([(f.aircraft, f.count) for f in pkg.flights if f.role == Role.TRANSPORT])}
         pkg.jtac = obj.type in JTAC_OBJECTIVES
         return pkg
 
@@ -307,8 +316,10 @@ class PackageBuilder:
 
     def _pick_squadron(self, slot: Slot, tx, ty, ledger: Ledger, lead_service):
         """Prefer the lead's service; cross over only when sound (same-service option missing, or the other base is >=30% closer)."""
+        obj = (getattr(self, "_ctx", None) or (None, None))[0]
         cands = [sq for sq in self.state.squadrons.values()
-                 if slot.role in AIRCRAFT[sq.aircraft].roles and ledger.free[sq.id] >= 2 and self._in_range(sq.id, tx, ty)]
+                 if slot.role in AIRCRAFT[sq.aircraft].roles and ledger.free[sq.id] >= 2 and self._in_range(sq.id, tx, ty)
+                 and not (slot.role == Role.TRANSPORT and obj is not None and sq.base_id == obj.target_id)]     # no cargo run to your own field
         if not cands:
             return None
         key = lambda sq: self._dist_nm(sq.id, tx, ty) - 40 * (ledger.free[sq.id] / max(1, sq.authorized))
@@ -388,7 +399,7 @@ class PackageBuilder:
 
 
 def target_point(state: CampaignState, obj: Objective):
-    if obj.type in _FLEET:
+    if obj.type in _BASE_TARGET:
         b = state.bases[obj.target_id]
         return b.x, b.y
     a = state.assets[obj.target_id]
@@ -398,7 +409,7 @@ def target_point(state: CampaignState, obj: Objective):
 def packages_linked(state: CampaignState, p1: "Package", p2: "Package", km: float = 45.0) -> bool:
     """Same general area: targets within ~45 km of each other, or covered by the same SAM cluster (asset.defended_by), or one is the
     SAM site that defends the other's target. Fleet objectives are never linked."""
-    if p1.objective.type in _FLEET or p2.objective.type in _FLEET:
+    if p1.objective.type in _BASE_TARGET or p2.objective.type in _BASE_TARGET:
         return False
     a, b = state.assets[p1.objective.target_id], state.assets[p2.objective.target_id]
     if math.hypot(a.x - b.x, a.y - b.y) <= km * 1000:

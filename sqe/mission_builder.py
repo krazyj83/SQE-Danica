@@ -48,7 +48,7 @@ from .state import CampaignState
 KPH = 1.852
 F = VehicleGroup.Formation
 MAIN_TASK = {Role.CAP: task.CAP, Role.ESCORT: task.CAP, Role.SWEEP: task.FighterSweep, Role.SEAD: task.SEAD,
-             Role.STRIKE: task.PinpointStrike, Role.CAS: task.CAS}
+             Role.STRIKE: task.PinpointStrike, Role.CAS: task.CAS, Role.TRANSPORT: task.Transport}
 CAP_FLEET_KEEPOUT_NM = 90      # Red's known CAP stations stay at least this far from any carrier (hand-set: the cruiser's SM-2s killed CAP pairs 51 to 67 nm out)
 LASER = ["1688", "1687", "1686", "1685", "1684", "1683", "1682", "1681"]
 
@@ -167,6 +167,9 @@ class MissionBuilder:
         o = self.o
         st = self.state = copy.copy(self.state)                       # a private view: the carrier may be moved back for this sortie only
         st.bases = {k: copy.copy(v) for k, v in st.bases.items()}
+        if package.objective.type == ObjectiveType.CARGO:              # a cargo run has its own, lighter mission (cargo_builder.py)
+            from .cargo_builder import build_cargo
+            return build_cargo(self, package, out_path)
         pf = package.player_flight
         if pf is None:
             raise ValueError("choose your flight first")
