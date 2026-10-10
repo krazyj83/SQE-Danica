@@ -101,6 +101,9 @@ TWO_SEAT = {"F-14A-135-GR", "F-14A-135-GR-Early", "F-14A-95-GR", "F-14B", "F-15E
 # DCS task name -> SQE role
 TASK_ROLES = {"CAP": "CAP", "Intercept": "CAP", "Escort": "ESCORT", "Fighter Sweep": "SWEEP", "CAS": "CAS",
               "Ground Attack": "STRIKE", "Pinpoint Strike": "STRIKE", "SEAD": "SEAD"}
+# Tonnes one aircraft carries on a cargo run (logistics.py). Types whose DCS default task is Transport get the TRANSPORT role.
+CARGO_T = {"C-130J-30": 18.0, "C-130": 18.0, "C-17A": 70.0, "IL-76MD": 40.0, "An-26B": 5.0, "Yak-40": 2.0, "C-47": 2.7,
+           "CH-47Fbl1": 10.0, "CH-47D": 10.0, "Mi-8MT": 3.0, "UH-1H": 1.5, "Mi-26": 18.0, "CH-53E": 13.0, "UH-60A": 2.5}
 
 
 def era_of(type_id: str, max_speed: float) -> str:
@@ -109,6 +112,22 @@ def era_of(type_id: str, max_speed: float) -> str:
     if type_id in EARLY_JET:
         return "early_jet"
     return "modern"
+
+
+def is_transport(t) -> bool:
+    return getattr(getattr(t, "task_default", None), "name", "") == "Transport" or t.id in CARGO_T
+
+
+def transport_profile(heli: bool, era: str = "modern"):
+    """Cargo runs: helicopters low and slow, transports at a cruise level."""
+    from .aircraft import RouteProfile
+    if heli:
+        return RouteProfile(depart_alt_ft=500, depart_kts=110, dep_nm=3, cap_alt_ft=1000, cap_kts=120, push_kts=120, ip_kts=120,
+                            attack_kts=110, egress_kts=120, push_nm=10, ip_nm=5, egress_nm=5, low_agl_ft=300, no_low=False, tgt_note="Land, offload")
+    alt = 8000 if era == "ww2" else 18000
+    kts = 150 if era == "ww2" else 280
+    return RouteProfile(depart_alt_ft=alt // 2, depart_kts=kts, cap_alt_ft=alt, cap_kts=kts, push_kts=kts, ip_kts=kts, attack_kts=kts,
+                        egress_kts=kts, push_nm=20, ip_nm=10, egress_nm=10, no_low=True, tgt_note="Land, offload")
 
 
 def profile_for(era: str, max_speed_kmh: float):
@@ -143,7 +162,10 @@ def spec_from_type(t, key: str | None = None, **over):
     tid = t.id
     heli = bool(getattr(t, "helicopter", False))
     names = {getattr(x, "name", "") for x in (getattr(t, "tasks", None) or [])}
-    roles = frozenset(Role(TASK_ROLES[n]) for n in names if n in TASK_ROLES) if not heli else frozenset()
+    transport = is_transport(t)
+    roles = frozenset(Role(TASK_ROLES[n]) for n in names if n in TASK_ROLES) if not (heli or transport) else frozenset()
+    if transport:
+        roles = frozenset({Role.TRANSPORT})            # transports and transport helicopters fly cargo runs (logistics.py)
     era = over.pop("era", None) or era_of(tid, getattr(t, "max_speed", 1000) or 1000)
     vmax = float(getattr(t, "max_speed", 1000) or 1000)
     refuel = RefuelMethod.BOOM if tid in BOOM else RefuelMethod.BASKET if tid in BASKET else RefuelMethod.NONE
@@ -151,10 +173,12 @@ def spec_from_type(t, key: str | None = None, **over):
     bingo, joker = _fuel_marks(float(getattr(t, "fuel_max", 3000) or 3000))
     radius = 300 if era == "ww2" else 250 if vmax < 1300 else 300
     cruise = 220 if era == "ww2" else 380 if vmax < 1300 else 450
+    if transport:
+        radius, cruise = (180, 120) if heli else ((700, 150) if era == "ww2" else (1500, 280))
     base = dict(key=key or tid, display=tid, dcs_class=tid, home=home, roles=roles, refuel=refuel,
                 crew=2 if tid in TWO_SEAT else 1, combat_radius_nm=radius, cruise_kts=cruise,
-                player_flyable=bool(getattr(t, "flyable", False)) and not heli and bool(roles),
-                profile=profile_for(era, vmax), fc3=not getattr(t, "panel_radio", None), first_wp_label="",
+                player_flyable=bool(getattr(t, "flyable", False)) and bool(roles) and (not heli or transport),
+                profile=transport_profile(heli, era) if transport else profile_for(era, vmax), fc3=not getattr(t, "panel_radio", None), first_wp_label="",
                 bingo_lbs=bingo, joker_lbs=joker, carrier_capable=tid in CARRIER_OK, helicopter=heli, era=era, source="pydcs")
     base.update({k: v for k, v in over.items() if v is not None})
     return AircraftSpec(**base)

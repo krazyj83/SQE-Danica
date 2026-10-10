@@ -99,6 +99,8 @@ class LoadoutLibrary:
 
     def _resolve(self, key: str, role: Role, name: str) -> dict:
         from . import modunits
+        if role == Role.TRANSPORT:
+            return {}                                       # a cargo run carries cargo, not weapons
         pk = modunits.pack_loadout(key, name) or (modunits.pack_loadout(key, "CAP") if name in ("ESCORT", "SWEEP") else None)
         if pk:
             return {int(p): {"CLSID": v} for p, v in pk.items()}
@@ -119,7 +121,7 @@ def _role_tasks(role: Role) -> list:
     from dcs import task as T
     m = {Role.CAP: [T.CAP, T.Intercept, T.FighterSweep, T.Escort], Role.ESCORT: [T.Escort, T.CAP, T.FighterSweep],
          Role.SWEEP: [T.FighterSweep, T.CAP, T.Intercept], Role.CAS: [T.CAS, T.GroundAttack],
-         Role.STRIKE: [T.GroundAttack, T.PinpointStrike, T.CAS, T.RunwayAttack], Role.SEAD: [T.SEAD, T.GroundAttack]}
+         Role.STRIKE: [T.GroundAttack, T.PinpointStrike, T.CAS, T.RunwayAttack], Role.SEAD: [T.SEAD, T.GroundAttack], Role.TRANSPORT: [T.Transport]}
     return [t.id for t in m[role]]
 
 

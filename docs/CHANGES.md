@@ -1,3 +1,10 @@
+## Danica 0.6 - cargo runs and convoys
+* **Fly cargo.** The tasking order has up to two cargo runs a day to the neediest bases. Fly the transport (C-130J-30, CH-47F, Mi-8MT, UH-1H) or the fighter escort. Each transport that lands at the destination puts its load into that base's stock; the mission hook now records where every aircraft lands. AI cargo runs deliver too, with losses on dangerous routes.
+* The Caucasus pack gets VMGR-252 (C-130J, Batumi) and B Co 1-214th (CH-47F, Kobuleti). Transport types are in the catalog with cargo-run profiles: helicopters low and slow, the C-130J at cruise level.
+* **Interdict Red's supply.** Red's three biggest road shipments each night become convoys on the map ("Interdict the supply convoy to Carpiquet"). They arrive a day later carrying whatever survived.
+* Cargo runs are planned after the combat packages with their own dice, so the combat tasking order is unchanged (fingerprint byte-identical). Transports don't compete with combat squadrons for their base's sortie budget.
+* Fixed: you could be sent on a cargo run to your own field.
+
 ## Danica 0.5 - logistics (supply chain)
 * Every base on both sides holds fuel, ammunition and spares (docs/LOGISTICS.md). Sorties use them up, and overnight each side's supply chain ships from its rear area, the sea and its depots to the bases that need it most. Shipments crossing enemy air defences, or under the other side's air superiority, lose part of their load.
 * Stock matters. A squadron can't fly more sorties than its base supports. A Red field without fuel can't launch fighters, escorts or raids. Replacement aircraft need spares. The ground war's supply follows the forward bases' stock. In a 15-day test with Red's depots knocked out, Red's serviceable aircraft fell from 94 to 27.

@@ -323,7 +323,8 @@ class LogisticsPage(QWidget):
         sh = led.get("shipments", [])
         self.ships.setRowCount(len(sh))
         for i, x in enumerate(sh):
-            vals = ("Ours" if x["side"] == "blue" else "Enemy", x["from"], x["to"], x["mode"], f"{x['fuel'] + x['ammo'] + x['spares']:.0f}", f"{x['lost']:.0f}")
+            how = {"convoy": "convoy - on the road, arrives tonight (a target)", "road": "back roads"}.get(x["mode"], x["mode"])
+            vals = ("Ours" if x["side"] == "blue" else "Enemy", x["from"], x["to"], how, f"{x['fuel'] + x['ammo'] + x['spares']:.0f}", f"{x['lost']:.0f}")
             for j, v in enumerate(vals):
                 self.ships.setItem(i, j, _item(v, (theme.RED if (j == 5 and x["lost"] >= 5) else None)))
 

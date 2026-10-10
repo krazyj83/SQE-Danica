@@ -12,7 +12,7 @@ from .models import Objective, ObjectiveType, AssetKind, Role
 from .packages import Package
 from .state import CampaignState
 
-ROLE_WEIGHT = {Role.STRIKE: 1.0, Role.SEAD: 0.9, Role.ESCORT: 0.6, Role.SWEEP: 0.7, Role.CAP: 0.6, Role.CAS: 1.0}
+ROLE_WEIGHT = {Role.STRIKE: 1.0, Role.SEAD: 0.9, Role.ESCORT: 0.6, Role.SWEEP: 0.7, Role.CAP: 0.6, Role.CAS: 1.0, Role.TRANSPORT: 0.0}
 
 
 NM = 1852.0
@@ -47,7 +47,8 @@ class ObjectivePlanner:
             defenders = [x for x in a.defended_by if alive(x)]
             if a.kind in (AssetKind.C2, AssetKind.FUEL, AssetKind.DEPOT):
                 pr = a.value * a.health / (1 + 0.5 * len(defenders))
-                cand.append((pr, Objective("", ObjectiveType.STRIKE, a.id, pr, f"Strike {a.name}"), self._blockers(state, a), locked))
+                desc = f"Interdict the {a.name[0].lower()}{a.name[1:]}" if a.variant == "CONVOY" else f"Strike {a.name}"
+                cand.append((pr, Objective("", ObjectiveType.STRIKE, a.id, pr, desc), self._blockers(state, a), locked))
             elif a.kind == AssetKind.SAM and a.value >= 5 and (tm.RANGE_NM.get(a.variant, 0) >= 10 or a.variant in factions.VariantFlag("long_range")):      # short-range SAMs are CAS's problem, not a SEAD/DEAD package's (heavy flak counts: it is WWII's long-range air defence)
                 covered = sum(x.value for x in state.assets.values() if a.id in x.defended_by and not x.destroyed) / 3.0
                 pr = a.value * a.health + covered
@@ -234,6 +235,9 @@ class WarSimulator:
                     "objective": pkg.objective.description, "roll": {"success": False}}
         if pkg.objective.type == ObjectiveType.FLEET_DEFENSE:
             return self._resolve_raid(state, pkg, force)
+        if pkg.objective.type == ObjectiveType.CARGO:
+            from . import logistics
+            return logistics.resolve_cargo(state, pkg, self.rng, self.d)
         if pkg.objective.type == ObjectiveType.DEAD and any(f.role == Role.STRIKE for f in pkg.flights):
             return self._resolve_dead(state, pkg, force)
         p, strength, defense = self.odds(state, pkg)

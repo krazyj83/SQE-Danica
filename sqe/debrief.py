@@ -35,6 +35,7 @@ local SITES = { __SITES__ }
 local RUINS = { __RUINS__ }
 local pl = { takeoff = nil, landed = nil, ka = 0, kg = 0, ks = 0 }
 local dead, ejected, landed, ended = {}, {}, {}, false
+local landedAt = {}                                   -- where each aircraft touched down: airbase name and position (cargo runs are counted by it)
 local kills = {}
 local function esc(s) return (tostring(s):gsub('[%c"\\]', function(c) return string.format("\\u%04x", string.byte(c)) end)) end
 local function list(t)
@@ -51,12 +52,19 @@ local function killsJson()
   return "[" .. table.concat(o, ",") .. "]"
 end
 local function num(x) if x then return string.format("%d", math.floor(x)) end return "null" end
+local function landedJson()
+  local o = {}
+  for n, v in pairs(landedAt) do
+    o[#o + 1] = string.format('"%s":{"place":"%s","x":%d,"z":%d}', esc(n), esc(v.place or ""), math.floor(v.x or 0), math.floor(v.z or 0))
+  end
+  return "{" .. table.concat(o, ",") .. "}"
+end
 local function dump()
   local f = io.open(OUT, "w")
   if not f then return end
-  f:write(string.format('{"campaign":"__CAMPAIGN__","sortie":__SORTIE__,"package":"__PKG__","mission_ended":%s,"time":%d,"dead":%s,"ejected":%s,"landed":%s,"player":{"takeoff":%s,"landed":%s,"ka":%d,"kg":%d,"ks":%d},"kills":%s}',
+  f:write(string.format('{"campaign":"__CAMPAIGN__","sortie":__SORTIE__,"package":"__PKG__","mission_ended":%s,"time":%d,"dead":%s,"ejected":%s,"landed":%s,"player":{"takeoff":%s,"landed":%s,"ka":%d,"kg":%d,"ks":%d},"kills":%s,"landed_at":%s}',
     tostring(ended), math.floor(timer.getTime()), list(dead), list(ejected), list(landed),
-    num(pl.takeoff), num(pl.landed), pl.ka, pl.kg, pl.ks, killsJson()))
+    num(pl.takeoff), num(pl.landed), pl.ka, pl.kg, pl.ks, killsJson(), landedJson()))
   f:close()
 end
 local function nameOf(obj)
@@ -128,6 +136,11 @@ function H:onEvent(e)
   if id == world.event.S_EVENT_LAND or id == world.event.S_EVENT_RUNWAY_TOUCH then
     if n and not dead[n] then
       landed[n] = true
+      local rec = {}
+      if e.place then local okp, pn = pcall(function() return e.place:getName() end); if okp then rec.place = pn end end
+      local oku, p3 = pcall(function() return e.initiator:getPoint() end)
+      if oku and p3 then rec.x, rec.z = p3.x, p3.z end
+      landedAt[n] = rec
       if n == PLAYER then pl.landed = timer.getTime() end
       dump()
       if DESPAWN[n] then
@@ -366,6 +379,23 @@ def apply_debrief(state: CampaignState, manifest: Manifest, data: dict) -> dict:
             if dead:
                 out["blue_losses"].append({"callsign": g.get("callsign", g["ref"]), "lost": len(dead), "total": len(g["units"])})
                 out["lines"].append(f"{g.get('callsign', g['ref'])}: lost {len(dead)}/{len(g['units'])} ({sq.name}: {sq.available}/{sq.authorized} left)")
+        elif g["kind"] == "cargo":                               # a cargo run: what landed at the destination goes into its stock
+            from . import logistics as _lg
+            at = data.get("landed_at") or {}
+            dx, dy = g.get("x"), g.get("y")
+
+            def arrived(u):
+                v = at.get(u) or {}
+                if v.get("place") and v["place"] == g.get("airport"):
+                    return True
+                return dx is not None and "x" in v and ((v["x"] - dx) ** 2 + (v["z"] - dy) ** 2) ** 0.5 < 6000.0
+            ok = [u for u in g["units"] if u not in lost and arrived(u)]
+            tonnes = sum(float(g.get("per_unit", {}).get(u, 0.0)) for u in ok)
+            took = _lg.deliver_cargo(state, g["ref"], tonnes) if tonnes > 0 else {}
+            got = sum(took.values())
+            out["cargo_t"] = out.get("cargo_t", 0.0) + got
+            out["lines"].append(f"Cargo: {len(ok)} of {len(g['units'])} transports landed at {g.get('dest_name', g['ref'])}, {got:.0f} t delivered"
+                                if ok else f"Cargo: nothing reached {g.get('dest_name', g['ref'])}")
         elif g["kind"] == "friendly_ground":
             out["ground_total"] = out.get("ground_total", 0) + len(g["units"]); out["ground_lost"] = out.get("ground_lost", 0) + len(dead)
             if g["units"]:

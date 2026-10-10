@@ -23,6 +23,19 @@ A fallen Blue field or a cratered Red field receives nothing.
 
 Campaigns from before logistics get a full ledger the first time they're opened.
 
-## Next: cargo you fly
+## Cargo runs you fly
 
-Cargo missions in a C-130J, CH-47, UH-1H, Mi-8 or C-47 add to the same ledger. What you land at a base goes into its stock. Red convoys on the roads become targets.
+Every day the tasking order includes up to two **cargo runs** to the neediest airfields: "Deliver supplies to Kutaisi AB". A cargo package is a transport flight from its own field to the destination, plus a fighter escort when enemy fighters can reach the route. It needs no AWACS or tanker.
+
+- **Fly the transport.** The C-130J-30 carries 18 t, the CH-47F 10 t, the Mi-8MT 3 t and the UH-1H 1.5 t. Raise a new squadron of one in New Campaign, or take the Caucasus pack's VMGR-252 (C-130J, Batumi) or B Co 1-214th (CH-47F, Kobuleti). Helicopters fly the route at 500 ft above the ground.
+- **Or fly the escort** in your fighter, if the package has one.
+- **What counts:** each transport that **lands at the destination** and survives delivers its load (half fuel, a third ammunition, the rest spares). The mission hook records where every aircraft touched down: the airbase name, with a 6 km fallback on position. A transport shot down or landed elsewhere delivers nothing.
+- **The AI flies the runs you don't.** Each transport gets through unless the route bites, with the same losses a shipment suffers; an escort halves them.
+
+Cargo is planned after the combat packages, numbered after them and launched through the day, so it never takes a combat package's aircraft.
+
+## Red convoys you can catch
+
+Each night Red's three biggest road shipments travel as **supply convoys** and arrive the next night. Until then each is a target on the road, 60% of the way from its depot to its field: "Interdict the supply convoy to Carpiquet". What a convoy delivers is scaled by what is left of it, so a convoy hit to 30% delivers 30% and a destroyed one delivers nothing. Smaller loads go by back roads and arrive the same night. On WWII maps the convoy is Opel Blitz trucks and Sd.Kfz. 2 tractors with a 2 cm flak.
+
+On Normandy there are no flyable transports yet, because pydcs's C-47 is AI-only. So there are no cargo runs there, but convoy interdiction works.
