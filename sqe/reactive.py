@@ -49,7 +49,8 @@ def plan_red(state, d, rng, tx, ty, base_aircraft: int, blue_fighters: int, used
     cands = []
     for w in state.enemy_air:
         a = state.assets.get(w.base_asset_id)
-        if a is None or a.destroyed:
+        from . import logistics
+        if a is None or a.destroyed or not logistics.operational(state, w.base_asset_id):    # out of fuel: no reinforcements from there
             continue
         nm = math.hypot(a.x - tx, a.y - ty) / NM
         types = [t for t in w.types if t in fighters and INTERCEPT_NM.get(t, 120) >= nm]

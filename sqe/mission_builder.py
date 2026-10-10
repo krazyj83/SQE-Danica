@@ -1349,7 +1349,9 @@ class MissionBuilder:
 
     def _fighter_wings(self, tx, ty):
         st = self.state
+        from . import logistics
         wings = [(w, st.assets[w.base_asset_id]) for w in st.enemy_air if w.available > 0 and not st.assets[w.base_asset_id].destroyed
+                 and logistics.operational(st, w.base_asset_id)                    # a field out of fuel cannot launch
                  and any(t in ENEMY_FIGHTERS for t in w.types)]
         wings.sort(key=lambda p: dist(p[1].x, p[1].y, tx, ty))
         return wings

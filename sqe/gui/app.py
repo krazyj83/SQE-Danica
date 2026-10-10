@@ -292,6 +292,42 @@ class ForcesPage(QWidget):
             self.as_.setCellWidget(i, 3, self._bar(a.health, theme.GREEN if a.health > 0.6 else theme.AMBER if a.health > 0.25 else theme.RED))
 
 
+class LogisticsPage(QWidget):
+    """Fuel, ammunition and spares at every base on both sides, and what the supply chain moved last night (logistics.py)."""
+    def __init__(self):
+        super().__init__(); lay = QVBoxLayout(self)
+        self.summary = QLabel(); self.summary.setWordWrap(True); self.summary.setObjectName("dim"); lay.addWidget(self.summary)
+        self.tabs = QTabWidget(); lay.addWidget(self.tabs, 1)
+        self.stock = _tbl(["Side", "Base", "Fuel", "Ammunition", "Spares", "Status", "Used yesterday (t)"])
+        self.ships = _tbl(["Side", "From", "To", "How", "Delivered (t)", "Lost on the way (t)"])
+        self.tabs.addTab(self.stock, "Base stock"); self.tabs.addTab(self.ships, "Last night's supply")
+
+    def refresh(self, st):
+        from .. import logistics as L
+        led = getattr(st, "logistics", None) or {}
+        bases = sorted(led.get("bases", {}).items(), key=lambda kv: (kv[1]["side"] != "blue", kv[1]["name"]))
+        self.summary.setText("  ".join(L.summary(st)) or "No logistics in this campaign yet (it starts when the campaign is next opened).")
+        self.stock.setRowCount(len(bases))
+        col = lambda f: theme.GREEN if f >= 0.4 else theme.AMBER if f >= L.LOW_FRAC else theme.RED
+        for i, (bid, b) in enumerate(bases):
+            used = led.get("used", {}).get(bid, {})
+            stt = L.status(st, bid)
+            self.stock.setItem(i, 0, _item("Ours" if b["side"] == "blue" else "Enemy", theme.BLUE if b["side"] == "blue" else theme.RED))
+            self.stock.setItem(i, 1, _item(b["name"]))
+            for j, c in enumerate(L.COMMODITIES, 2):
+                f = b[c] / b["cap"][c] if b["cap"][c] else 0.0
+                bar = ForcesPage._bar(f, col(f)); bar.setFormat(f"{b[c]:.0f} / {b['cap'][c]:.0f} t"); bar.setToolTip(f"{f:.0%}")
+                self.stock.setCellWidget(i, j, bar)
+            self.stock.setItem(i, 5, _item(stt, {"GOOD": theme.GREEN, "LOW": theme.AMBER, "CRITICAL": theme.RED}[stt]))
+            self.stock.setItem(i, 6, _item(f"{sum(used.values()):.0f}" if used else "-"))
+        sh = led.get("shipments", [])
+        self.ships.setRowCount(len(sh))
+        for i, x in enumerate(sh):
+            vals = ("Ours" if x["side"] == "blue" else "Enemy", x["from"], x["to"], x["mode"], f"{x['fuel'] + x['ammo'] + x['spares']:.0f}", f"{x['lost']:.0f}")
+            for j, v in enumerate(vals):
+                self.ships.setItem(i, j, _item(v, (theme.RED if (j == 5 and x["lost"] >= 5) else None)))
+
+
 class PilotPage(QWidget):
     def __init__(self):
         super().__init__(); lay = QVBoxLayout(self); lay.setSpacing(14)
@@ -344,8 +380,10 @@ class MainWindow(QMainWindow):
         sub = QLabel("Squadron Campaign Engine"); sub.setObjectName("small"); sl.addWidget(sub); sl.addSpacing(18)
         self.stack = QStackedWidget()
         self.p_over, self.p_miss, self.p_forces, self.p_pilot, self.p_log = OverviewPage(), MissionsPage(self), ForcesPage(), PilotPage(), LogPage()
+        self.p_logi = LogisticsPage()
         grp = QButtonGroup(self); grp.setExclusive(True)
-        for i, (name, page) in enumerate((("Overview", self.p_over), ("Missions", self.p_miss), ("Forces", self.p_forces), ("Pilot", self.p_pilot), ("War log", self.p_log))):
+        for i, (name, page) in enumerate((("Overview", self.p_over), ("Missions", self.p_miss), ("Forces", self.p_forces), ("Logistics", self.p_logi),
+                                          ("Pilot", self.p_pilot), ("War log", self.p_log))):
             b = QPushButton(name); b.setObjectName("nav"); b.setCheckable(True); grp.addButton(b, i); sl.addWidget(b)
             self.stack.addWidget(page); b.clicked.connect(lambda _=0, k=i: self.stack.setCurrentIndex(k))
             if i == 1:
@@ -528,7 +566,7 @@ class MainWindow(QMainWindow):
         st = self.session.state
         if not st:
             self.h_title.setText("No campaign loaded"); return
-        for p in (self.p_over, self.p_forces, self.p_pilot, self.p_log):
+        for p in (self.p_over, self.p_forces, self.p_logi, self.p_pilot, self.p_log):
             p.refresh(st)
         self.p_miss.refresh(self.session)
         n, name, _ = narrative.phase(st)

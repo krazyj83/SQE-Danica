@@ -190,7 +190,9 @@ def supply(state, side: str) -> float:
     """0.55 (every depot and fuel site gone) .. 1.0 (all intact). A side with no such sites at all runs at 0.85."""
     pool = state.assets.values() if side == "red" else getattr(state, "blue_assets", {}).values()
     h = facility_health(pool, (AssetKind.FUEL, AssetKind.DEPOT))
-    return SUPPLY_NONE if h is None else SUPPLY_FLOOR + (1.0 - SUPPLY_FLOOR) * h
+    base = SUPPLY_NONE if h is None else SUPPLY_FLOOR + (1.0 - SUPPLY_FLOOR) * h
+    from . import logistics                                         # and how well stocked the forward bases are (1.0 at 60% stock or better)
+    return base * logistics.supply_factor(state, side)
 
 
 def _control(r: float, b: float) -> float:

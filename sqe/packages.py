@@ -7,7 +7,7 @@ from dataclasses import dataclass, field, asdict
 from . import threat
 from . import threatmap as tm
 from .loadouts import ENEMY_FIGHTERS, ENEMY_RADIUS_NM
-from . import factions
+from . import factions, logistics
 from .aircraft import AIRCRAFT, AWACS_FOR, TANKER_FOR, RECOVERY_TANKER
 from .models import Objective, ObjectiveType, Role, BaseKind, RefuelMethod
 from .state import CampaignState
@@ -269,7 +269,7 @@ class PackageBuilder:
         esc = None
         for w in sorted(st.enemy_air, key=lambda w: math.hypot(st.assets[w.base_asset_id].x - tb.x, st.assets[w.base_asset_id].y - tb.y)):
             a = st.assets[w.base_asset_id]
-            if w is bw or w.available < 2 or a.destroyed:
+            if w is bw or w.available < 2 or a.destroyed or not logistics.operational(st, w.base_asset_id):
                 continue
             d_nm = math.hypot(a.x - tb.x, a.y - tb.y) / NM
             types = [t for t in w.types if t in ENEMY_FIGHTERS and ENEMY_RADIUS_NM.get(t, 0) * 0.85 >= d_nm]
@@ -285,7 +285,8 @@ class PackageBuilder:
         st = self.state
         if obj is not None and obj.target_id in st.bases and st.bases[obj.target_id].kind != BaseKind.CARRIER:
             return self._land_raid_plan(number, obj)
-        bw = next((w for w in st.enemy_air if factions.bomber() and factions.bomber() in w.types and w.available >= 2 and not st.assets[w.base_asset_id].destroyed), None)
+        bw = next((w for w in st.enemy_air if factions.bomber() and factions.bomber() in w.types and w.available >= 2 and not st.assets[w.base_asset_id].destroyed
+                   and logistics.operational(st, w.base_asset_id)), None)
         cv = next((b for b in st.bases.values() if b.kind == BaseKind.CARRIER), None)
         if bw is None or cv is None:
             return None
@@ -294,7 +295,7 @@ class PackageBuilder:
         esc = None
         for w in sorted(st.enemy_air, key=lambda w: math.hypot(st.assets[w.base_asset_id].x - cv.x, st.assets[w.base_asset_id].y - cv.y)):
             a = st.assets[w.base_asset_id]
-            if w is bw or w.available < 2 or a.destroyed:
+            if w is bw or w.available < 2 or a.destroyed or not logistics.operational(st, w.base_asset_id):
                 continue
             d_nm = math.hypot(a.x - cv.x, a.y - cv.y) / NM
             types = [t for t in w.types if t in ENEMY_FIGHTERS and ENEMY_RADIUS_NM.get(t, 0) * 0.85 >= d_nm]

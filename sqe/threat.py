@@ -10,7 +10,8 @@ def expected_defenders(state, tx: float, ty: float, iads: float = 0.5) -> float:
     e = 0.0
     for w in state.enemy_air:
         a = state.assets[w.base_asset_id]
-        if a.destroyed or w.available <= 0:
+        from . import logistics
+        if a.destroyed or w.available <= 0 or not logistics.operational(state, w.base_asset_id):
             continue
         d = math.hypot(a.x - tx, a.y - ty) / NM
         if d > 180:

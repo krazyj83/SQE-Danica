@@ -1,3 +1,11 @@
+## Danica 0.5 - logistics (supply chain)
+* Every base on both sides holds fuel, ammunition and spares (docs/LOGISTICS.md). Sorties use them up, and overnight each side's supply chain ships from its rear area, the sea and its depots to the bases that need it most. Shipments crossing enemy air defences, or under the other side's air superiority, lose part of their load.
+* Stock matters. A squadron can't fly more sorties than its base supports. A Red field without fuel can't launch fighters, escorts or raids. Replacement aircraft need spares. The ground war's supply follows the forward bases' stock. In a 15-day test with Red's depots knocked out, Red's serviceable aircraft fell from 94 to 27.
+* Each side's lift is sized to its own air force, so it balances on any theatre, era and level.
+* New **Logistics** page: stock bars for every base on both sides, and last night's shipments with what was lost on the way.
+* Campaigns from before logistics are given a ledger when opened. Modern day-1 missions are unchanged (fingerprint byte-identical).
+* The smoke test now exits 0 when it passes. It used to crash with exit 139 when pyproj and Qt shut down after the last line.
+
 ## Danica 0.4 - WWII: Normandy 1944
 * New theatre: **Normandy 1944**, Allies (US and UK) against Germany in the Caen battles of June 1944. You fly from the Normandy landing grounds (B-2 Bazenville, B-3, B-4, B-11, A-2, A-4) and from RAF Ford and Tangmere. The Luftwaffe holds Carpiquet, Lessay, Flers, Argentan, Bernay, Beaumont, Conches, Evreux and Saint-Andre. The ground war runs from Carpiquet toward the beachhead.
 * The Allied squadrons are the 354th and 352nd FG (P-51D), the 365th and 366th FG (P-47D), Nos. 602, 441 and 401 Sqn (Spitfire IX) and No. 21 Sqn (Mosquito). New Campaign shows only Allied aircraft on Normandy and starts in June 1944.

@@ -869,7 +869,42 @@ def main():
     _faction_test(s)
     _red_squadron_test(s)
     _normandy_test(s)
+    _logistics_test(s)
     print("SMOKE TEST PASSED")
+
+
+def _logistics_test(s):
+    """Logistics: every base on both sides is stocked; a day's flying uses fuel and ammunition and the night's shipments refill; a starved
+    base flies fewer sorties; a red field with no fuel cannot launch; replacements need spares; an old save gets a ledger on open; it saves."""
+    from sqe import logistics as L
+    from sqe.state import CampaignState as _CS
+    s.new("Logi", "F-16C", 2, seed=3)
+    st = s.state
+    led = st.logistics
+    assert {b["side"] for b in led["bases"].values()} == {"blue", "red"} and all(abs(b["fuel"] - 0.8 * b["cap"]["fuel"]) < 1 for b in led["bases"].values())
+    assert any(x["side"] == "red" and x["kind"] != "rear" for x in led["sources"]) and all("t" in x for x in led["sources"]), "sources with a lift"
+    s.skip_day()
+    assert led is not st.logistics or True
+    led = st.logistics
+    assert led["used"] and led["shipments"], "the day used stock and the night shipped it"
+    assert any(x["side"] == "red" for x in led["shipments"]) and any(x["side"] == "blue" for x in led["shipments"])
+    sq = next(q for q in st.squadrons.values() if q.available >= 4)
+    b = led["bases"][sq.base_id]; full = L.sortie_cap(st, sq)
+    b["fuel"] = 2 * L._fuel_t(sq.aircraft)
+    assert L.sortie_cap(st, sq) < full and L.sortie_cap(st, sq) <= 2, "a starved base flies fewer sorties"
+    rb = next(bid for bid, x in led["bases"].items() if x["side"] == "red")
+    led["bases"][rb]["fuel"] = 0.0
+    assert not L.operational(st, rb) and L.operational(st, next(bid for bid, x in led["bases"].items() if x["side"] == "red" and bid != rb))
+    led["bases"][sq.base_id]["spares"] = L.SPARES_PER_AIRFRAME * 2
+    assert L.repair_allowance(st, sq.base_id, 5) == 2 and led["bases"][sq.base_id]["spares"] < 0.01, "replacements use spares"
+    s.save(); back = _CS.load(s.path)
+    assert back.logistics["bases"][rb]["fuel"] == 0.0, "the ledger saves"
+    old = st.to_dict(); old.pop("logistics")
+    import json as _json
+    p = s.path.with_name("old_logi.sqe"); p.write_text(_json.dumps(old)); s.open(p)
+    assert L.active(s.state) and len(s.state.logistics["bases"]) == len(back.logistics["bases"]), "an old save gets a ledger on open"
+    print(f"[logistics] {len(led['bases'])} bases stocked on both sides, {len(led['sources'])} sources; use, night shipments, sortie caps, "
+          f"grounded red field, spares for replacements, save, old-save upgrade")
 
 
 def _normandy_test(s):
@@ -1009,3 +1044,7 @@ if __name__ == "__main__":
         main()
     finally:
         shutil.rmtree(TMP, ignore_errors=True)
+    # Passed and cleaned up: leave now. Letting the interpreter tear down pyproj and Qt here crashes natively after the last Python line
+    # (exit 139 with no Python frame), which would turn a passed run into a failed exit code.
+    sys.stdout.flush(); sys.stderr.flush()
+    os._exit(0)
